@@ -1,0 +1,12 @@
+# FastMCP - MCP Server Framework
+fastmcp>=0.1.0
+
+# Environment Variable Management
+python-dotenv>=1.0.0
+
+# Web Framework (included with fastmcp, but listed for clarity)
+starlette>=0.37.0
+uvicorn>=0.27.0
+
+# HTTP Client (for future API integrations)
+httpx>=0.26.0
