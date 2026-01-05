@@ -209,13 +209,17 @@ fastmcp client http://localhost:8000/mcp --tool test_connection
 ### Project Structure
 ```
 sherpa-mcp-server/
-├── server.py              # Main server implementation
-├── requirements.txt       # Python dependencies
-├── .env.example          # Example environment configuration
-├── .env                  # Your local configuration (not in git)
-├── README.md            # This file
-├── AUTH0_SETUP.md       # Auth0 setup guide
-└── src/                 # Future: modular components
+├── server.py                 # Main server implementation
+├── requirements.txt          # Python dependencies
+├── Dockerfile               # Docker container configuration
+├── .dockerignore            # Docker build exclusions
+├── railway.toml             # Railway deployment configuration
+├── .env.example             # Example environment configuration
+├── .env                     # Your local configuration (not in git)
+├── README.md                # This file
+├── AUTH0_SETUP.md           # Auth0 setup guide
+├── RAILWAY_DEPLOYMENT.md    # Railway deployment guide
+└── src/                     # Future: modular components
 ```
 
 ### Adding New Tools
@@ -267,24 +271,69 @@ See [AUTH0_SETUP.md](AUTH0_SETUP.md) for complete security guidelines.
 python server.py
 ```
 
-### Production (Railway, Heroku, etc.)
-1. Set environment variables in your deployment platform
-2. Ensure `SERVER_BASE_URL` uses HTTPS
-3. Configure Auth0 with production URLs
-4. Use a process manager or container orchestration
+### Production - Railway (Recommended)
 
-Example Railway deployment:
+This project is ready for deployment on Railway with Docker support.
+
+**Quick Deploy**:
+1. Push your code to GitHub
+2. Connect your repository to Railway
+3. Railway automatically detects `Dockerfile` and `railway.toml`
+4. Configure environment variables in Railway dashboard
+5. Deploy automatically on every push
+
+**Required Environment Variables for Railway**:
 ```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login and deploy
-railway login
-railway init
-railway up
+AUTH0_CONFIG_URL=https://YOUR_DOMAIN.auth0.com/.well-known/openid-configuration
+AUTH0_CLIENT_ID=your-production-client-id
+AUTH0_CLIENT_SECRET=your-production-client-secret
+AUTH0_AUDIENCE=https://api.sherpa-mcp.com
+SERVER_BASE_URL=https://your-app.up.railway.app
+REQUIRE_CONSENT=true
 ```
 
-Add environment variables in Railway dashboard.
+**Railway automatically provides**:
+- `PORT` - Assigned port (server.py handles this)
+- `RAILWAY_STATIC_URL` - Your app's public URL
+- SSL certificate (automatic with custom domains)
+
+**See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete deployment guide** including:
+- Step-by-step Railway setup
+- Auth0 production configuration
+- Custom domain setup
+- Monitoring and logs
+- Troubleshooting
+
+### Docker Deployment (Other Platforms)
+
+Build and run with Docker:
+
+```bash
+# Build the image
+docker build -t sherpa-mcp-server .
+
+# Run the container
+docker run -p 8000:8000 \
+  -e AUTH0_CONFIG_URL="https://YOUR_DOMAIN.auth0.com/.well-known/openid-configuration" \
+  -e AUTH0_CLIENT_ID="your-client-id" \
+  -e AUTH0_CLIENT_SECRET="your-client-secret" \
+  -e AUTH0_AUDIENCE="https://api.sherpa-mcp.com" \
+  -e SERVER_BASE_URL="https://your-domain.com" \
+  sherpa-mcp-server
+```
+
+Or use docker-compose (create `docker-compose.yml`):
+```yaml
+version: '3.8'
+services:
+  mcp-server:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
+```
 
 ## Troubleshooting
 
@@ -322,18 +371,21 @@ This project is licensed under the MIT License - see LICENSE file for details.
 - [FastMCP Documentation](https://gofastmcp.com)
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
 - [Auth0 Documentation](https://auth0.com/docs)
+- [Railway Documentation](https://docs.railway.app)
 - [Claude Desktop Documentation](https://claude.ai/docs)
 
 ## Support
 
 For issues and questions:
 - Check [AUTH0_SETUP.md](AUTH0_SETUP.md) for Auth0-related questions
+- Check [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for Railway deployment help
 - Review FastMCP documentation at https://gofastmcp.com
 - Open an issue in this repository
 
 ## Roadmap
 
 - ✅ Phase 1: Basic MCP server with Auth0 OAuth
+- ✅ Phase 1.5: Docker containerization and Railway deployment
 - 🚧 Phase 2: Google Calendar integration
 - 🚧 Phase 3: TickTick task management
 - 🚧 Phase 4: Obsidian notes integration

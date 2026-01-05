@@ -217,9 +217,15 @@ if __name__ == "__main__":
     logger.info("=" * 60)
 
     # Run the server with streamable-http transport
+    # Railway uses PORT, but we also support SERVER_PORT for flexibility
+    port = int(os.getenv("PORT", os.getenv("SERVER_PORT", "8000")))
+    host = os.getenv("SERVER_HOST", "0.0.0.0")
+
+    logger.info(f"Starting server on {host}:{port}")
+
     server.run(
         transport="streamable-http",
-        host=os.getenv("SERVER_HOST", "0.0.0.0"),
-        port=int(os.getenv("SERVER_PORT", "8000")),
+        host=host,
+        port=port,
         show_banner=True
     )

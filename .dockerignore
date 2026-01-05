@@ -1,0 +1,69 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv
+venv/
+ENV/
+env/
+.virtualenv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+.tox/
+htmlcov/
+*.cover
+
+# Documentation (build artifacts)
+docs/_build/
+site/
+
+# Environment files
+.env
+.envrc
+
+# Logs
+*.log
+
+# Claude Code
+.claude/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Keep
+!requirements.txt
+!server.py
+!.env.example
