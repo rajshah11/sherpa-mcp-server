@@ -55,13 +55,13 @@ export GOOGLE_CALENDAR_CREDENTIALS_JSON='{"installed":{"client_id":"YOUR_CLIENT_
 
 ### 6. Generate Token (One-time Local Setup)
 
-Run the server locally to trigger authentication:
+Run the standalone auth script:
 
 ```bash
-python server.py
+python scripts/google_calendar_auth.py
 ```
 
-A browser window will open for Google OAuth. After authorization, the server will print:
+A browser window will open for Google OAuth. After authorization, the script will print:
 
 ```
 ============================================================
