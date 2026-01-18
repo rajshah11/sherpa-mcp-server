@@ -301,6 +301,7 @@ fastmcp client http://localhost:8000/mcp --tool test_connection
 ```
 sherpa-mcp-server/
 ├── server.py                    # Main server implementation
+├── google_calendar.py           # Google Calendar integration
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -311,9 +312,8 @@ sherpa-mcp-server/
 ├── AUTH0_SETUP.md               # Auth0 setup guide
 ├── GOOGLE_CALENDAR_SETUP.md     # Google Calendar setup guide
 ├── RAILWAY_DEPLOYMENT.md        # Railway deployment guide
-└── src/
-    ├── __init__.py              # Module init
-    └── google_calendar.py       # Google Calendar integration
+└── scripts/
+    └── google_calendar_auth.py  # Standalone auth script
 ```
 
 ### Adding New Tools

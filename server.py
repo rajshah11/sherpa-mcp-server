@@ -16,11 +16,7 @@ from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
 # Google Calendar integration
-from src.google_calendar import (
-    get_calendar_client,
-    is_calendar_configured,
-    GoogleCalendarClient
-)
+from google_calendar import get_calendar_client, is_calendar_configured
 
 # Load environment variables
 load_dotenv()
