@@ -18,6 +18,9 @@ from dotenv import load_dotenv
 # Google Calendar integration
 from google_calendar import get_calendar_client, is_calendar_configured
 
+# TickTick integration
+from ticktick import get_ticktick_client, is_ticktick_configured
+
 # Load environment variables
 load_dotenv()
 
@@ -502,6 +505,425 @@ async def calendar_delete_event(
 
 
 # ============================================================================
+# TickTick Tools
+# ============================================================================
+
+@server.tool(
+    name="ticktick_list_projects",
+    description="List all TickTick projects (task lists)"
+)
+async def ticktick_list_projects(ctx: Context) -> dict:
+    """List all projects the user has access to.
+
+    Returns:
+        Dictionary with list of projects
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        await ctx.info("Fetching TickTick projects...")
+        client = get_ticktick_client()
+        projects = client.list_projects()
+        return {
+            "projects": projects,
+            "count": len(projects)
+        }
+    except Exception as e:
+        logger.error(f"Failed to list projects: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_get_project",
+    description="Get a specific TickTick project with all its tasks"
+)
+async def ticktick_get_project(
+    project_id: str,
+    include_tasks: bool = True,
+    ctx: Context = None
+) -> dict:
+    """Get a project by ID, optionally with all its tasks.
+
+    Args:
+        project_id: The project ID
+        include_tasks: Whether to include tasks (default: True)
+
+    Returns:
+        Dictionary with project details and tasks
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Fetching project: {project_id}")
+
+        client = get_ticktick_client()
+        if include_tasks:
+            result = client.get_project_with_tasks(project_id)
+        else:
+            result = {"project": client.get_project(project_id)}
+        return result
+    except Exception as e:
+        logger.error(f"Failed to get project: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_create_project",
+    description="Create a new TickTick project (task list)"
+)
+async def ticktick_create_project(
+    name: str,
+    color: Optional[str] = None,
+    view_mode: str = "list",
+    ctx: Context = None
+) -> dict:
+    """Create a new project.
+
+    Args:
+        name: Project name
+        color: Project color in hex format (e.g., "#F18181")
+        view_mode: View mode - "list", "kanban", or "timeline" (default: "list")
+
+    Returns:
+        Dictionary with created project details
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Creating project: {name}")
+
+        client = get_ticktick_client()
+        project = client.create_project(
+            name=name,
+            color=color,
+            view_mode=view_mode
+        )
+        return {
+            "status": "created",
+            "project": project
+        }
+    except Exception as e:
+        logger.error(f"Failed to create project: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_delete_project",
+    description="Delete a TickTick project"
+)
+async def ticktick_delete_project(
+    project_id: str,
+    ctx: Context = None
+) -> dict:
+    """Delete a project.
+
+    Args:
+        project_id: The project ID to delete
+
+    Returns:
+        Dictionary with deletion status
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Deleting project: {project_id}")
+
+        client = get_ticktick_client()
+        client.delete_project(project_id)
+        return {
+            "status": "deleted",
+            "project_id": project_id
+        }
+    except Exception as e:
+        logger.error(f"Failed to delete project: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_get_task",
+    description="Get a specific TickTick task"
+)
+async def ticktick_get_task(
+    project_id: str,
+    task_id: str,
+    ctx: Context = None
+) -> dict:
+    """Get a specific task by ID.
+
+    Args:
+        project_id: The project ID containing the task
+        task_id: The task ID
+
+    Returns:
+        Dictionary with task details
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Fetching task: {task_id}")
+
+        client = get_ticktick_client()
+        task = client.get_task(project_id=project_id, task_id=task_id)
+        return {"task": task}
+    except Exception as e:
+        logger.error(f"Failed to get task: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_create_task",
+    description="Create a new task in TickTick"
+)
+async def ticktick_create_task(
+    title: str,
+    project_id: str,
+    content: Optional[str] = None,
+    desc: Optional[str] = None,
+    start_date: Optional[str] = None,
+    due_date: Optional[str] = None,
+    time_zone: str = "America/Los_Angeles",
+    is_all_day: bool = False,
+    priority: int = 0,
+    ctx: Context = None
+) -> dict:
+    """Create a new task.
+
+    Args:
+        title: Task title
+        project_id: Project ID to add the task to
+        content: Task content/notes (optional)
+        desc: Task description for checklist (optional)
+        start_date: Start date in ISO format (e.g., "2024-01-15T10:00:00") (optional)
+        due_date: Due date in ISO format (optional)
+        time_zone: Time zone (default: "America/Los_Angeles")
+        is_all_day: Whether this is an all-day task (default: False)
+        priority: Priority level - 0 (None), 1 (Low), 3 (Medium), 5 (High) (default: 0)
+
+    Returns:
+        Dictionary with created task details
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Creating task: {title}")
+
+        client = get_ticktick_client()
+
+        # Parse dates if provided
+        start_dt = None
+        due_dt = None
+        if start_date:
+            start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", ""))
+        if due_date:
+            due_dt = datetime.datetime.fromisoformat(due_date.replace("Z", ""))
+
+        task = client.create_task(
+            title=title,
+            project_id=project_id,
+            content=content,
+            desc=desc,
+            start_date=start_dt,
+            due_date=due_dt,
+            time_zone=time_zone,
+            is_all_day=is_all_day,
+            priority=priority
+        )
+        return {
+            "status": "created",
+            "task": task
+        }
+    except Exception as e:
+        logger.error(f"Failed to create task: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_update_task",
+    description="Update an existing TickTick task"
+)
+async def ticktick_update_task(
+    task_id: str,
+    project_id: str,
+    title: Optional[str] = None,
+    content: Optional[str] = None,
+    desc: Optional[str] = None,
+    start_date: Optional[str] = None,
+    due_date: Optional[str] = None,
+    time_zone: Optional[str] = None,
+    is_all_day: Optional[bool] = None,
+    priority: Optional[int] = None,
+    ctx: Context = None
+) -> dict:
+    """Update an existing task.
+
+    Only provided fields will be updated.
+
+    Args:
+        task_id: The task ID to update
+        project_id: The project ID containing the task
+        title: New task title (optional)
+        content: New content/notes (optional)
+        desc: New description (optional)
+        start_date: New start date in ISO format (optional)
+        due_date: New due date in ISO format (optional)
+        time_zone: New time zone (optional)
+        is_all_day: Whether this is an all-day task (optional)
+        priority: New priority level (optional)
+
+    Returns:
+        Dictionary with updated task details
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Updating task: {task_id}")
+
+        client = get_ticktick_client()
+
+        # Parse dates if provided
+        start_dt = None
+        due_dt = None
+        if start_date:
+            start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", ""))
+        if due_date:
+            due_dt = datetime.datetime.fromisoformat(due_date.replace("Z", ""))
+
+        task = client.update_task(
+            task_id=task_id,
+            project_id=project_id,
+            title=title,
+            content=content,
+            desc=desc,
+            start_date=start_dt,
+            due_date=due_dt,
+            time_zone=time_zone,
+            is_all_day=is_all_day,
+            priority=priority
+        )
+        return {
+            "status": "updated",
+            "task": task
+        }
+    except Exception as e:
+        logger.error(f"Failed to update task: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_complete_task",
+    description="Mark a TickTick task as complete"
+)
+async def ticktick_complete_task(
+    project_id: str,
+    task_id: str,
+    ctx: Context = None
+) -> dict:
+    """Mark a task as complete.
+
+    Args:
+        project_id: The project ID containing the task
+        task_id: The task ID to complete
+
+    Returns:
+        Dictionary with completion status
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Completing task: {task_id}")
+
+        client = get_ticktick_client()
+        client.complete_task(project_id=project_id, task_id=task_id)
+        return {
+            "status": "completed",
+            "task_id": task_id,
+            "project_id": project_id
+        }
+    except Exception as e:
+        logger.error(f"Failed to complete task: {e}")
+        return {"error": str(e)}
+
+
+@server.tool(
+    name="ticktick_delete_task",
+    description="Delete a TickTick task"
+)
+async def ticktick_delete_task(
+    project_id: str,
+    task_id: str,
+    ctx: Context = None
+) -> dict:
+    """Delete a task.
+
+    Args:
+        project_id: The project ID containing the task
+        task_id: The task ID to delete
+
+    Returns:
+        Dictionary with deletion status
+    """
+    if not is_ticktick_configured():
+        return {
+            "error": "TickTick not configured",
+            "message": "Please set up TickTick credentials. See .env.example for instructions."
+        }
+
+    try:
+        if ctx:
+            await ctx.info(f"Deleting task: {task_id}")
+
+        client = get_ticktick_client()
+        client.delete_task(project_id=project_id, task_id=task_id)
+        return {
+            "status": "deleted",
+            "task_id": task_id,
+            "project_id": project_id
+        }
+    except Exception as e:
+        logger.error(f"Failed to delete task: {e}")
+        return {"error": str(e)}
+
+
+# ============================================================================
 # Custom HTTP Endpoints
 # ============================================================================
 
@@ -518,7 +940,8 @@ async def health_check(request: Request) -> JSONResponse:
         "service": "sherpa-mcp-server",
         "version": "1.0.0",
         "auth_enabled": auth0_enabled,
-        "google_calendar_enabled": is_calendar_configured()
+        "google_calendar_enabled": is_calendar_configured(),
+        "ticktick_enabled": is_ticktick_configured()
     })
 
 @server.custom_route("/info", methods=["GET"])
@@ -554,10 +977,20 @@ async def server_info(request: Request) -> JSONResponse:
             "calendar_create_event",
             "calendar_quick_add",
             "calendar_update_event",
-            "calendar_delete_event"
+            "calendar_delete_event",
+            "ticktick_list_projects",
+            "ticktick_get_project",
+            "ticktick_create_project",
+            "ticktick_delete_project",
+            "ticktick_get_task",
+            "ticktick_create_task",
+            "ticktick_update_task",
+            "ticktick_complete_task",
+            "ticktick_delete_task"
         ],
         "integrations": {
-            "google_calendar": is_calendar_configured()
+            "google_calendar": is_calendar_configured(),
+            "ticktick": is_ticktick_configured()
         },
         "timestamp": datetime.datetime.now().isoformat()
     })
@@ -592,6 +1025,7 @@ if __name__ == "__main__":
     logger.info("=" * 60)
     logger.info(f"Authentication: {'Enabled (Auth0)' if auth0_enabled else 'Disabled'}")
     logger.info(f"Google Calendar: {'Enabled' if is_calendar_configured() else 'Disabled'}")
+    logger.info(f"TickTick: {'Enabled' if is_ticktick_configured() else 'Disabled'}")
     logger.info(f"Server URL: {os.getenv('SERVER_BASE_URL', 'http://localhost:8000')}")
     logger.info("=" * 60)
 
