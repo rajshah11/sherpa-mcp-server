@@ -6,6 +6,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 
 - 🔐 **Secure Authentication**: Auth0 OAuth 2.1 + OIDC with PKCE support
 - 📅 **Google Calendar**: Full calendar management (list, create, update, delete events)
+- ✅ **TickTick**: Task management (projects, tasks, completion tracking)
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -31,8 +32,13 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Multi-calendar support
 - See [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md) for setup
 
+✅ **Phase 3 Complete**: TickTick integration
+- Project (task list) management
+- Task CRUD operations with priorities and due dates
+- Task completion tracking
+- See [TICKTICK_SETUP.md](TICKTICK_SETUP.md) for setup
+
 🚧 **Planned Integrations**:
-- TickTick task management
 - Obsidian notes (filesystem synced with SyncThing)
 - Health data management
 
@@ -231,6 +237,99 @@ Delete a calendar event.
 
 **Returns**: Deletion confirmation
 
+### TickTick Tools
+
+> **Note**: These tools require TickTick setup. See [TICKTICK_SETUP.md](TICKTICK_SETUP.md)
+
+#### `ticktick_list_projects`
+List all TickTick projects (task lists).
+
+**Returns**: List of projects with ID, name, color, and view mode
+
+#### `ticktick_get_project`
+Get a specific project with all its tasks.
+
+**Parameters**:
+- `project_id` (string, required): The project ID
+- `include_tasks` (boolean, optional): Include tasks (default: true)
+
+**Returns**: Project details and tasks
+
+#### `ticktick_create_project`
+Create a new project (task list).
+
+**Parameters**:
+- `name` (string, required): Project name
+- `color` (string, optional): Color in hex format (e.g., "#F18181")
+- `view_mode` (string, optional): "list", "kanban", or "timeline" (default: "list")
+
+**Returns**: Created project details
+
+#### `ticktick_delete_project`
+Delete a project.
+
+**Parameters**:
+- `project_id` (string, required): Project ID to delete
+
+**Returns**: Deletion confirmation
+
+#### `ticktick_get_task`
+Get a specific task.
+
+**Parameters**:
+- `project_id` (string, required): The project ID containing the task
+- `task_id` (string, required): The task ID
+
+**Returns**: Task details
+
+#### `ticktick_create_task`
+Create a new task.
+
+**Parameters**:
+- `title` (string, required): Task title
+- `project_id` (string, required): Project ID to add the task to
+- `content` (string, optional): Task content/notes
+- `desc` (string, optional): Description for checklist
+- `start_date` (string, optional): Start date in ISO format
+- `due_date` (string, optional): Due date in ISO format
+- `time_zone` (string, optional): Time zone (default: "America/Los_Angeles")
+- `is_all_day` (boolean, optional): All-day task flag (default: false)
+- `priority` (int, optional): 0 (None), 1 (Low), 3 (Medium), 5 (High)
+
+**Returns**: Created task details
+
+#### `ticktick_update_task`
+Update an existing task.
+
+**Parameters**:
+- `task_id` (string, required): Task ID to update
+- `project_id` (string, required): Project ID containing the task
+- `title` (string, optional): New title
+- `content` (string, optional): New content
+- `start_date` (string, optional): New start date
+- `due_date` (string, optional): New due date
+- `priority` (int, optional): New priority
+
+**Returns**: Updated task details
+
+#### `ticktick_complete_task`
+Mark a task as complete.
+
+**Parameters**:
+- `project_id` (string, required): Project ID containing the task
+- `task_id` (string, required): Task ID to complete
+
+**Returns**: Completion confirmation
+
+#### `ticktick_delete_task`
+Delete a task.
+
+**Parameters**:
+- `project_id` (string, required): Project ID containing the task
+- `task_id` (string, required): Task ID to delete
+
+**Returns**: Deletion confirmation
+
 ## Connecting to Claude Desktop
 
 To use this server with Claude Desktop:
@@ -279,7 +378,8 @@ Expected response:
   "service": "sherpa-mcp-server",
   "version": "1.0.0",
   "auth_enabled": false,
-  "google_calendar_enabled": true
+  "google_calendar_enabled": true,
+  "ticktick_enabled": true
 }
 ```
 
@@ -302,6 +402,7 @@ fastmcp client http://localhost:8000/mcp --tool test_connection
 sherpa-mcp-server/
 ├── server.py                    # Main server implementation
 ├── google_calendar.py           # Google Calendar integration
+├── ticktick.py                  # TickTick integration
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -311,9 +412,11 @@ sherpa-mcp-server/
 ├── README.md                    # This file
 ├── AUTH0_SETUP.md               # Auth0 setup guide
 ├── GOOGLE_CALENDAR_SETUP.md     # Google Calendar setup guide
+├── TICKTICK_SETUP.md            # TickTick setup guide
 ├── RAILWAY_DEPLOYMENT.md        # Railway deployment guide
 └── scripts/
-    └── google_calendar_auth.py  # Standalone auth script
+    ├── google_calendar_auth.py  # Google Calendar auth script
+    └── ticktick_auth.py         # TickTick auth script
 ```
 
 ### Adding New Tools
@@ -466,6 +569,7 @@ This project is licensed under the MIT License - see LICENSE file for details.
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
 - [Auth0 Documentation](https://auth0.com/docs)
 - [Google Calendar API Documentation](https://developers.google.com/calendar/api)
+- [TickTick Open API Documentation](https://developer.ticktick.com)
 - [Railway Documentation](https://docs.railway.app)
 - [Claude Desktop Documentation](https://claude.ai/docs)
 
@@ -474,6 +578,7 @@ This project is licensed under the MIT License - see LICENSE file for details.
 For issues and questions:
 - Check [AUTH0_SETUP.md](AUTH0_SETUP.md) for Auth0-related questions
 - Check [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md) for Google Calendar setup
+- Check [TICKTICK_SETUP.md](TICKTICK_SETUP.md) for TickTick setup
 - Check [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for Railway deployment help
 - Review FastMCP documentation at https://gofastmcp.com
 - Open an issue in this repository
@@ -483,7 +588,7 @@ For issues and questions:
 - ✅ Phase 1: Basic MCP server with Auth0 OAuth
 - ✅ Phase 1.5: Docker containerization and Railway deployment
 - ✅ Phase 2: Google Calendar integration
-- 🚧 Phase 3: TickTick task management
+- ✅ Phase 3: TickTick task management
 - 🚧 Phase 4: Obsidian notes integration
 - 🚧 Phase 5: Health data management
 - 🚧 Phase 6: Advanced AI-powered features
