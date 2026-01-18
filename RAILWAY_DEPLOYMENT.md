@@ -105,6 +105,21 @@ SERVER_BASE_URL=https://sherpa-mcp-production.up.railway.app
 
 **Important**: Update this to your custom domain if you configure one.
 
+#### Google Calendar Configuration (Optional)
+
+If using Google Calendar integration:
+
+```
+GOOGLE_CALENDAR_TOKEN_JSON='{"token":"...","refresh_token":"...","client_id":"...","client_secret":"..."}'
+```
+
+**Setup**:
+1. Run authentication locally first (see [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md))
+2. Copy the generated `GOOGLE_CALENDAR_TOKEN_JSON` value
+3. Add it as a Railway environment variable
+
+No files needed - everything is stored in environment variables.
+
 ### Step 3: Use Railway's Secret Manager (Optional)
 
 For sensitive values like `AUTH0_CLIENT_SECRET`:
@@ -239,7 +254,8 @@ Expected response:
   "timestamp": "2026-01-04T...",
   "service": "sherpa-mcp-server",
   "version": "1.0.0",
-  "auth_enabled": true
+  "auth_enabled": true,
+  "google_calendar_enabled": true
 }
 ```
 
@@ -298,6 +314,7 @@ You'll see your application logs:
 Starting Sherpa MCP Server v1.0.0
 ============================================================
 Authentication: Enabled (Auth0)
+Google Calendar: Enabled
 Server URL: https://sherpa-mcp-production.up.railway.app
 ============================================================
 Starting server on 0.0.0.0:8080
@@ -515,6 +532,8 @@ Before going to production:
 - [ ] Team members have access to Railway project (if applicable)
 - [ ] Auth0 security settings reviewed (MFA, anomaly detection)
 - [ ] Railway resource limits configured
+- [ ] Google Calendar credentials deployed (if using calendar integration)
+- [ ] Calendar tools tested in production
 
 ## Next Steps
 
@@ -524,7 +543,8 @@ After successful deployment:
 2. **Test Tools**: Verify all MCP tools work correctly
 3. **Monitor Usage**: Watch Railway metrics and logs
 4. **Scale as Needed**: Adjust resources based on usage
-5. **Add Features**: Implement Calendar, TickTick, Obsidian integrations
+5. **Configure Google Calendar**: See [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md)
+6. **Add More Features**: Implement TickTick, Obsidian integrations
 
 ## Getting Help
 
@@ -569,4 +589,4 @@ railway variables set KEY=value
 ---
 
 **Previous**: [AUTH0_SETUP.md](AUTH0_SETUP.md)
-**Next**: Test deployment with Claude.ai
+**Next**: [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md)

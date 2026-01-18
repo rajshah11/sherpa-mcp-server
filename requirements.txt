@@ -10,3 +10,8 @@ uvicorn>=0.27.0
 
 # HTTP Client (for future API integrations)
 httpx>=0.26.0
+
+# Google Calendar API
+google-api-python-client>=2.100.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.0.0

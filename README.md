@@ -5,6 +5,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 ## Features
 
 - 🔐 **Secure Authentication**: Auth0 OAuth 2.1 + OIDC with PKCE support
+- 📅 **Google Calendar**: Full calendar management (list, create, update, delete events)
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -19,8 +20,18 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Auth0 OAuth authentication (optional)
 - Production-ready with secure defaults
 
+✅ **Phase 1.5 Complete**: Docker & Railway deployment
+- Docker containerization with health checks
+- Railway one-click deployment support
+- Production-ready deployment guides
+
+✅ **Phase 2 Complete**: Google Calendar integration
+- Full calendar CRUD operations
+- Natural language event creation (quick add)
+- Multi-calendar support
+- See [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md) for setup
+
 🚧 **Planned Integrations**:
-- Google Calendar events management
 - TickTick task management
 - Obsidian notes (filesystem synced with SyncThing)
 - Health data management
@@ -121,12 +132,14 @@ For production with Auth0:
 
 The MCP server exposes the following tools to clients:
 
-### 1. `test_connection`
+### Core Tools
+
+#### `test_connection`
 Test the connection to the MCP server and get server status.
 
 **Returns**: Connection status with timestamp and authentication info
 
-### 2. `echo`
+#### `echo`
 Echo back a message with optional formatting.
 
 **Parameters**:
@@ -136,10 +149,87 @@ Echo back a message with optional formatting.
 
 **Returns**: Formatted message
 
-### 3. `get_server_time`
+#### `get_server_time`
 Get the current server time in ISO format.
 
 **Returns**: Dictionary with local and UTC timestamps
+
+### Google Calendar Tools
+
+> **Note**: These tools require Google Calendar setup. See [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md)
+
+#### `calendar_list_calendars`
+List all Google Calendars accessible to the user.
+
+**Returns**: List of calendars with ID, name, and access role
+
+#### `calendar_list_events`
+List upcoming events from Google Calendar.
+
+**Parameters**:
+- `calendar_id` (string, optional): Calendar ID (default: "primary")
+- `max_results` (int, optional): Maximum events to return (default: 10)
+- `days_ahead` (int, optional): Days to look ahead (default: 7)
+- `query` (string, optional): Search filter
+
+**Returns**: List of events with details
+
+#### `calendar_get_event`
+Get details of a specific calendar event.
+
+**Parameters**:
+- `event_id` (string, required): The event ID
+- `calendar_id` (string, optional): Calendar ID (default: "primary")
+
+**Returns**: Full event details
+
+#### `calendar_create_event`
+Create a new event in Google Calendar.
+
+**Parameters**:
+- `summary` (string, required): Event title
+- `start_time` (string, required): Start time in ISO format
+- `end_time` (string, required): End time in ISO format
+- `calendar_id` (string, optional): Calendar ID (default: "primary")
+- `description` (string, optional): Event description
+- `location` (string, optional): Event location
+- `attendees` (string, optional): Comma-separated emails
+- `time_zone` (string, optional): Time zone (default: "UTC")
+- `all_day` (boolean, optional): All-day event flag
+
+**Returns**: Created event details
+
+#### `calendar_quick_add`
+Create an event using natural language description.
+
+**Parameters**:
+- `text` (string, required): Natural language description (e.g., "Meeting with John tomorrow at 3pm")
+- `calendar_id` (string, optional): Calendar ID (default: "primary")
+
+**Returns**: Created event details
+
+#### `calendar_update_event`
+Update an existing calendar event.
+
+**Parameters**:
+- `event_id` (string, required): Event ID to update
+- `calendar_id` (string, optional): Calendar ID (default: "primary")
+- `summary` (string, optional): New title
+- `start_time` (string, optional): New start time
+- `end_time` (string, optional): New end time
+- `description` (string, optional): New description
+- `location` (string, optional): New location
+
+**Returns**: Updated event details
+
+#### `calendar_delete_event`
+Delete a calendar event.
+
+**Parameters**:
+- `event_id` (string, required): Event ID to delete
+- `calendar_id` (string, optional): Calendar ID (default: "primary")
+
+**Returns**: Deletion confirmation
 
 ## Connecting to Claude Desktop
 
@@ -188,7 +278,8 @@ Expected response:
   "timestamp": "2026-01-04T...",
   "service": "sherpa-mcp-server",
   "version": "1.0.0",
-  "auth_enabled": false
+  "auth_enabled": false,
+  "google_calendar_enabled": true
 }
 ```
 
@@ -209,17 +300,20 @@ fastmcp client http://localhost:8000/mcp --tool test_connection
 ### Project Structure
 ```
 sherpa-mcp-server/
-├── server.py                 # Main server implementation
-├── requirements.txt          # Python dependencies
-├── Dockerfile               # Docker container configuration
-├── .dockerignore            # Docker build exclusions
-├── railway.toml             # Railway deployment configuration
-├── .env.example             # Example environment configuration
-├── .env                     # Your local configuration (not in git)
-├── README.md                # This file
-├── AUTH0_SETUP.md           # Auth0 setup guide
-├── RAILWAY_DEPLOYMENT.md    # Railway deployment guide
-└── src/                     # Future: modular components
+├── server.py                    # Main server implementation
+├── requirements.txt             # Python dependencies
+├── Dockerfile                   # Docker container configuration
+├── .dockerignore                # Docker build exclusions
+├── railway.toml                 # Railway deployment configuration
+├── .env.example                 # Example environment configuration
+├── .env                         # Your local configuration (not in git)
+├── README.md                    # This file
+├── AUTH0_SETUP.md               # Auth0 setup guide
+├── GOOGLE_CALENDAR_SETUP.md     # Google Calendar setup guide
+├── RAILWAY_DEPLOYMENT.md        # Railway deployment guide
+└── src/
+    ├── __init__.py              # Module init
+    └── google_calendar.py       # Google Calendar integration
 ```
 
 ### Adding New Tools
@@ -371,6 +465,7 @@ This project is licensed under the MIT License - see LICENSE file for details.
 - [FastMCP Documentation](https://gofastmcp.com)
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
 - [Auth0 Documentation](https://auth0.com/docs)
+- [Google Calendar API Documentation](https://developers.google.com/calendar/api)
 - [Railway Documentation](https://docs.railway.app)
 - [Claude Desktop Documentation](https://claude.ai/docs)
 
@@ -378,6 +473,7 @@ This project is licensed under the MIT License - see LICENSE file for details.
 
 For issues and questions:
 - Check [AUTH0_SETUP.md](AUTH0_SETUP.md) for Auth0-related questions
+- Check [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md) for Google Calendar setup
 - Check [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for Railway deployment help
 - Review FastMCP documentation at https://gofastmcp.com
 - Open an issue in this repository
@@ -386,7 +482,7 @@ For issues and questions:
 
 - ✅ Phase 1: Basic MCP server with Auth0 OAuth
 - ✅ Phase 1.5: Docker containerization and Railway deployment
-- 🚧 Phase 2: Google Calendar integration
+- ✅ Phase 2: Google Calendar integration
 - 🚧 Phase 3: TickTick task management
 - 🚧 Phase 4: Obsidian notes integration
 - 🚧 Phase 5: Health data management
