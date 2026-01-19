@@ -49,12 +49,7 @@ class GoogleCalendarClient:
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
-                logger.info("Refreshed expired credentials")
-                logger.warning(
-                    "Token was refreshed. Update GOOGLE_CALENDAR_TOKEN_JSON "
-                    "with the new value to persist:"
-                )
-                print(f"\nGOOGLE_CALENDAR_TOKEN_JSON='{creds.to_json()}'\n")
+                logger.debug("Refreshed expired Google Calendar credentials")
             except Exception as e:
                 logger.error(f"Failed to refresh credentials: {e}")
                 return None
