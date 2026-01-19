@@ -2,8 +2,9 @@
 Core MCP Server - Basic utility tools.
 """
 
-import datetime
-from fastmcp import FastMCP, Context
+from datetime import datetime
+
+from fastmcp import Context, FastMCP
 
 core_server = FastMCP(name="Core Tools")
 
@@ -15,8 +16,7 @@ core_server = FastMCP(name="Core Tools")
 async def test_connection(ctx: Context) -> str:
     """Test the connection to the server."""
     await ctx.info("Testing connection to Sherpa MCP Server...")
-    timestamp = datetime.datetime.now().isoformat()
-    return f"Connection successful!\nServer time: {timestamp}"
+    return f"Connection successful!\nServer time: {datetime.now().isoformat()}"
 
 
 @core_server.tool(
@@ -33,13 +33,8 @@ async def echo_tool(
     if ctx:
         await ctx.info(f"Echoing message: {message[:50]}...")
 
-    result = message
-    if uppercase:
-        result = result.upper()
-    if prefix:
-        result = f"{prefix}: {result}"
-
-    return result
+    result = message.upper() if uppercase else message
+    return f"{prefix}: {result}" if prefix else result
 
 
 @core_server.tool(
@@ -48,9 +43,9 @@ async def echo_tool(
 )
 def get_server_time() -> dict:
     """Get the current server time."""
-    now = datetime.datetime.now()
+    now = datetime.now()
     return {
         "timestamp": now.isoformat(),
-        "utc_timestamp": datetime.datetime.utcnow().isoformat(),
+        "utc_timestamp": datetime.utcnow().isoformat(),
         "timezone": "local"
     }

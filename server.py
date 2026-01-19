@@ -6,42 +6,36 @@ This server acts as a personal assistant, managing calendar events, tasks, notes
 health data, and more. It uses Auth0 for secure authentication and FastMCP's
 server composition to organize tools into logical modules.
 """
-import os
 import asyncio
 import datetime
 import logging
+import os
+
+from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.auth0 import Auth0Provider
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from dotenv import load_dotenv
 
-# Sub-servers
-from servers.core import core_server
-from servers.calendar import calendar_server
-from servers.ticktick import ticktick_server
-
-# Integration status checks
 from google_calendar import is_calendar_configured
+from servers.calendar import calendar_server
+from servers.core import core_server
+from servers.ticktick import ticktick_server
 from ticktick import is_ticktick_configured
 
-# Load environment variables
 load_dotenv()
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+VERSION = "1.0.0"
 
 # ============================================================================
 # Auth0 OAuth Configuration
 # ============================================================================
 
-auth0_enabled = all([
-    os.getenv("AUTH0_CONFIG_URL"),
-    os.getenv("AUTH0_CLIENT_ID"),
-    os.getenv("AUTH0_CLIENT_SECRET"),
-    os.getenv("AUTH0_AUDIENCE")
-])
+AUTH0_ENV_VARS = ["AUTH0_CONFIG_URL", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET", "AUTH0_AUDIENCE"]
+auth0_enabled = all(os.getenv(var) for var in AUTH0_ENV_VARS)
 
 if auth0_enabled:
     logger.info("Configuring Auth0 OAuth authentication...")
@@ -67,7 +61,7 @@ else:
 server = FastMCP(
     name="Sherpa MCP Server",
     instructions="A remote MCP server providing personal assistant capabilities with secure Auth0 authentication",
-    version="1.0.0",
+    version=VERSION,
     auth=auth
 )
 
@@ -85,17 +79,26 @@ async def compose_servers():
 # Custom HTTP Endpoints
 # ============================================================================
 
+def _get_integration_status() -> dict:
+    """Return current integration status."""
+    return {
+        "google_calendar": is_calendar_configured(),
+        "ticktick": is_ticktick_configured()
+    }
+
+
 @server.custom_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     """Health check endpoint for monitoring and load balancers."""
+    integrations = _get_integration_status()
     return JSONResponse({
         "status": "healthy",
         "timestamp": datetime.datetime.now().isoformat(),
         "service": "sherpa-mcp-server",
-        "version": "1.0.0",
+        "version": VERSION,
         "auth_enabled": auth0_enabled,
-        "google_calendar_enabled": is_calendar_configured(),
-        "ticktick_enabled": is_ticktick_configured()
+        "google_calendar_enabled": integrations["google_calendar"],
+        "ticktick_enabled": integrations["ticktick"]
     })
 
 
@@ -104,7 +107,7 @@ async def server_info(request: Request) -> JSONResponse:
     """Server information endpoint."""
     return JSONResponse({
         "name": "Sherpa MCP Server",
-        "version": "1.0.0",
+        "version": VERSION,
         "description": "Remote MCP server with personal assistant capabilities",
         "mcp_protocol": "Model Context Protocol",
         "transport": "streamable-http",
@@ -118,10 +121,7 @@ async def server_info(request: Request) -> JSONResponse:
             "mcp": "/mcp",
             "oauth_metadata": "/.well-known/oauth-authorization-server" if auth0_enabled else None
         },
-        "integrations": {
-            "google_calendar": is_calendar_configured(),
-            "ticktick": is_ticktick_configured()
-        },
+        "integrations": _get_integration_status(),
         "timestamp": datetime.datetime.now().isoformat()
     })
 
@@ -131,14 +131,10 @@ async def root(request: Request) -> JSONResponse:
     """Root endpoint with basic information."""
     return JSONResponse({
         "message": "Welcome to Sherpa MCP Server",
-        "version": "1.0.0",
+        "version": VERSION,
         "description": "Your personal assistant MCP server",
         "auth_enabled": auth0_enabled,
-        "endpoints": {
-            "health": "/health",
-            "info": "/info",
-            "mcp": "/mcp"
-        },
+        "endpoints": {"health": "/health", "info": "/info", "mcp": "/mcp"},
         "documentation": "See README.md for setup instructions"
     })
 
@@ -147,28 +143,27 @@ async def root(request: Request) -> JSONResponse:
 # Server Entry Point
 # ============================================================================
 
-if __name__ == "__main__":
-    logger.info("=" * 60)
-    logger.info("Starting Sherpa MCP Server v1.0.0")
-    logger.info("=" * 60)
-    logger.info(f"Authentication: {'Enabled (Auth0)' if auth0_enabled else 'Disabled'}")
-    logger.info(f"Google Calendar: {'Enabled' if is_calendar_configured() else 'Disabled'}")
-    logger.info(f"TickTick: {'Enabled' if is_ticktick_configured() else 'Disabled'}")
-    logger.info(f"Server URL: {os.getenv('SERVER_BASE_URL', 'http://localhost:8000')}")
-    logger.info("=" * 60)
+def _log_startup_info():
+    """Log startup configuration details."""
+    integrations = _get_integration_status()
+    separator = "=" * 60
 
-    # Compose servers before running
+    logger.info(separator)
+    logger.info(f"Starting Sherpa MCP Server v{VERSION}")
+    logger.info(separator)
+    logger.info(f"Authentication: {'Enabled (Auth0)' if auth0_enabled else 'Disabled'}")
+    logger.info(f"Google Calendar: {'Enabled' if integrations['google_calendar'] else 'Disabled'}")
+    logger.info(f"TickTick: {'Enabled' if integrations['ticktick'] else 'Disabled'}")
+    logger.info(f"Server URL: {os.getenv('SERVER_BASE_URL', 'http://localhost:8000')}")
+    logger.info(separator)
+
+
+if __name__ == "__main__":
+    _log_startup_info()
     asyncio.run(compose_servers())
 
-    # Run the server
     port = int(os.getenv("PORT", os.getenv("SERVER_PORT", "8000")))
     host = os.getenv("SERVER_HOST", "0.0.0.0")
-
     logger.info(f"Starting server on {host}:{port}")
 
-    server.run(
-        transport="streamable-http",
-        host=host,
-        port=port,
-        show_banner=True
-    )
+    server.run(transport="streamable-http", host=host, port=port, show_banner=True)

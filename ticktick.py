@@ -1,18 +1,15 @@
 """
 TickTick Integration Module
 
-This module handles TickTick API authentication and provides
-helper functions for task and project management.
-
-Authentication requires TICKTICK_ACCESS_TOKEN environment variable.
+Handles TickTick API authentication and task/project management.
+Requires TICKTICK_ACCESS_TOKEN environment variable.
 Use scripts/ticktick_auth.py to generate the token.
 """
 
-import os
-import json
 import logging
+import os
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -63,38 +60,14 @@ class TickTickClient:
         client = self._get_client()
         response = client.get("/project")
         response.raise_for_status()
-        projects = response.json()
-
-        return [
-            {
-                "id": proj.get("id"),
-                "name": proj.get("name"),
-                "color": proj.get("color"),
-                "closed": proj.get("closed", False),
-                "group_id": proj.get("groupId"),
-                "view_mode": proj.get("viewMode"),
-                "permission": proj.get("permission"),
-                "kind": proj.get("kind")
-            }
-            for proj in projects
-        ]
+        return [self._format_project(proj) for proj in response.json()]
 
     def get_project(self, project_id: str) -> Dict[str, Any]:
         """Get a specific project by ID."""
         client = self._get_client()
         response = client.get(f"/project/{project_id}")
         response.raise_for_status()
-        proj = response.json()
-
-        return {
-            "id": proj.get("id"),
-            "name": proj.get("name"),
-            "color": proj.get("color"),
-            "closed": proj.get("closed", False),
-            "group_id": proj.get("groupId"),
-            "view_mode": proj.get("viewMode"),
-            "kind": proj.get("kind")
-        }
+        return self._format_project(response.json())
 
     def get_project_with_tasks(self, project_id: str) -> Dict[str, Any]:
         """Get a project with all its tasks."""
@@ -118,12 +91,7 @@ class TickTickClient:
     ) -> Dict[str, Any]:
         """Create a new project."""
         client = self._get_client()
-
-        body = {
-            "name": name,
-            "viewMode": view_mode,
-            "kind": kind
-        }
+        body = {"name": name, "viewMode": view_mode, "kind": kind}
         if color:
             body["color"] = color
 
@@ -131,7 +99,6 @@ class TickTickClient:
         response.raise_for_status()
         proj = response.json()
         logger.info(f"Created project: {proj.get('id')}")
-
         return self._format_project(proj)
 
     def update_project(
@@ -143,21 +110,12 @@ class TickTickClient:
     ) -> Dict[str, Any]:
         """Update an existing project."""
         client = self._get_client()
-
-        body = {}
-        if name is not None:
-            body["name"] = name
-        if color is not None:
-            body["color"] = color
-        if view_mode is not None:
-            body["viewMode"] = view_mode
+        body = self._build_optional_fields(name=name, color=color, viewMode=view_mode)
 
         response = client.post(f"/project/{project_id}", json=body)
         response.raise_for_status()
-        proj = response.json()
         logger.info(f"Updated project: {project_id}")
-
-        return self._format_project(proj)
+        return self._format_project(response.json())
 
     def delete_project(self, project_id: str) -> bool:
         """Delete a project."""
@@ -239,35 +197,27 @@ class TickTickClient:
     ) -> Dict[str, Any]:
         """Update an existing task."""
         client = self._get_client()
+        body = {"id": task_id, "projectId": project_id}
 
-        body = {
-            "id": task_id,
-            "projectId": project_id
-        }
+        optional = self._build_optional_fields(
+            title=title,
+            content=content,
+            desc=desc,
+            timeZone=time_zone,
+            isAllDay=is_all_day,
+            priority=priority
+        )
+        body.update(optional)
 
-        if title is not None:
-            body["title"] = title
-        if content is not None:
-            body["content"] = content
-        if desc is not None:
-            body["desc"] = desc
         if start_date is not None:
             body["startDate"] = self._format_datetime(start_date)
         if due_date is not None:
             body["dueDate"] = self._format_datetime(due_date)
-        if time_zone is not None:
-            body["timeZone"] = time_zone
-        if is_all_day is not None:
-            body["isAllDay"] = is_all_day
-        if priority is not None:
-            body["priority"] = priority
 
         response = client.post(f"/task/{task_id}", json=body)
         response.raise_for_status()
-        task = response.json()
         logger.info(f"Updated task: {task_id}")
-
-        return self._format_task(task)
+        return self._format_task(response.json())
 
     def complete_task(self, project_id: str, task_id: str) -> bool:
         """Mark a task as complete."""
@@ -289,9 +239,15 @@ class TickTickClient:
     # Helper Methods
     # ========================================================================
 
+    def _build_optional_fields(self, **kwargs) -> Dict[str, Any]:
+        """Build a dictionary with only non-None values."""
+        return {k: v for k, v in kwargs.items() if v is not None}
+
     def _format_datetime(self, dt: datetime) -> str:
         """Format datetime for TickTick API."""
-        return dt.strftime("%Y-%m-%dT%H:%M:%S%z") if dt.tzinfo else dt.strftime("%Y-%m-%dT%H:%M:%S+0000")
+        if dt.tzinfo:
+            return dt.strftime("%Y-%m-%dT%H:%M:%S%z")
+        return dt.strftime("%Y-%m-%dT%H:%M:%S+0000")
 
     def _format_project(self, proj: Dict[str, Any]) -> Dict[str, Any]:
         """Format a raw project response into a clean dictionary."""
@@ -303,7 +259,8 @@ class TickTickClient:
             "group_id": proj.get("groupId"),
             "view_mode": proj.get("viewMode"),
             "sort_order": proj.get("sortOrder"),
-            "kind": proj.get("kind")
+            "kind": proj.get("kind"),
+            "permission": proj.get("permission")
         }
 
     def _format_task(self, task: Dict[str, Any]) -> Dict[str, Any]:

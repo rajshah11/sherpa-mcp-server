@@ -2,10 +2,11 @@
 TickTick MCP Server - Task management tools.
 """
 
-import datetime
 import logging
+from datetime import datetime
 from typing import Optional
-from fastmcp import FastMCP, Context
+
+from fastmcp import Context, FastMCP
 
 from ticktick import get_ticktick_client, is_ticktick_configured
 
@@ -13,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 ticktick_server = FastMCP(name="TickTick")
 
+NOT_CONFIGURED_ERROR = {
+    "error": "TickTick not configured",
+    "message": "Please set up TickTick credentials. See TICKTICK_SETUP.md"
+}
 
-def _check_configured() -> Optional[dict]:
-    """Return error dict if not configured, None if OK."""
-    if not is_ticktick_configured():
-        return {
-            "error": "TickTick not configured",
-            "message": "Please set up TickTick credentials. See TICKTICK_SETUP.md"
-        }
-    return None
+
+def _parse_datetime(dt_string: str) -> datetime:
+    """Parse ISO datetime string, handling Z suffix."""
+    return datetime.fromisoformat(dt_string.replace("Z", ""))
 
 
 # ============================================================================
@@ -34,13 +35,12 @@ def _check_configured() -> Optional[dict]:
 )
 async def list_projects(ctx: Context) -> dict:
     """List all projects the user has access to."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         await ctx.info("Fetching TickTick projects...")
-        client = get_ticktick_client()
-        projects = client.list_projects()
+        projects = get_ticktick_client().list_projects()
         return {"projects": projects, "count": len(projects)}
     except Exception as e:
         logger.error(f"Failed to list projects: {e}")
@@ -57,8 +57,8 @@ async def get_project(
     ctx: Context = None
 ) -> dict:
     """Get a project by ID, optionally with all its tasks."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
@@ -66,10 +66,8 @@ async def get_project(
 
         client = get_ticktick_client()
         if include_tasks:
-            result = client.get_project_with_tasks(project_id)
-        else:
-            result = {"project": client.get_project(project_id)}
-        return result
+            return client.get_project_with_tasks(project_id)
+        return {"project": client.get_project(project_id)}
     except Exception as e:
         logger.error(f"Failed to get project: {e}")
         return {"error": str(e)}
@@ -86,19 +84,14 @@ async def create_project(
     ctx: Context = None
 ) -> dict:
     """Create a new project."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Creating project: {name}")
 
-        client = get_ticktick_client()
-        project = client.create_project(
-            name=name,
-            color=color,
-            view_mode=view_mode
-        )
+        project = get_ticktick_client().create_project(name=name, color=color, view_mode=view_mode)
         return {"status": "created", "project": project}
     except Exception as e:
         logger.error(f"Failed to create project: {e}")
@@ -114,15 +107,14 @@ async def delete_project(
     ctx: Context = None
 ) -> dict:
     """Delete a project."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Deleting project: {project_id}")
 
-        client = get_ticktick_client()
-        client.delete_project(project_id)
+        get_ticktick_client().delete_project(project_id)
         return {"status": "deleted", "project_id": project_id}
     except Exception as e:
         logger.error(f"Failed to delete project: {e}")
@@ -143,15 +135,14 @@ async def get_task(
     ctx: Context = None
 ) -> dict:
     """Get a specific task by ID."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Fetching task: {task_id}")
 
-        client = get_ticktick_client()
-        task = client.get_task(project_id=project_id, task_id=task_id)
+        task = get_ticktick_client().get_task(project_id=project_id, task_id=task_id)
         return {"task": task}
     except Exception as e:
         logger.error(f"Failed to get task: {e}")
@@ -175,24 +166,17 @@ async def create_task(
     ctx: Context = None
 ) -> dict:
     """Create a new task."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Creating task: {title}")
 
-        client = get_ticktick_client()
+        start_dt = _parse_datetime(start_date) if start_date else None
+        due_dt = _parse_datetime(due_date) if due_date else None
 
-        # Parse dates if provided
-        start_dt = None
-        due_dt = None
-        if start_date:
-            start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", ""))
-        if due_date:
-            due_dt = datetime.datetime.fromisoformat(due_date.replace("Z", ""))
-
-        task = client.create_task(
+        task = get_ticktick_client().create_task(
             title=title,
             project_id=project_id,
             content=content,
@@ -227,24 +211,17 @@ async def update_task(
     ctx: Context = None
 ) -> dict:
     """Update an existing task."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Updating task: {task_id}")
 
-        client = get_ticktick_client()
+        start_dt = _parse_datetime(start_date) if start_date else None
+        due_dt = _parse_datetime(due_date) if due_date else None
 
-        # Parse dates if provided
-        start_dt = None
-        due_dt = None
-        if start_date:
-            start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", ""))
-        if due_date:
-            due_dt = datetime.datetime.fromisoformat(due_date.replace("Z", ""))
-
-        task = client.update_task(
+        task = get_ticktick_client().update_task(
             task_id=task_id,
             project_id=project_id,
             title=title,
@@ -272,20 +249,15 @@ async def complete_task(
     ctx: Context = None
 ) -> dict:
     """Mark a task as complete."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Completing task: {task_id}")
 
-        client = get_ticktick_client()
-        client.complete_task(project_id=project_id, task_id=task_id)
-        return {
-            "status": "completed",
-            "task_id": task_id,
-            "project_id": project_id
-        }
+        get_ticktick_client().complete_task(project_id=project_id, task_id=task_id)
+        return {"status": "completed", "task_id": task_id, "project_id": project_id}
     except Exception as e:
         logger.error(f"Failed to complete task: {e}")
         return {"error": str(e)}
@@ -301,20 +273,15 @@ async def delete_task(
     ctx: Context = None
 ) -> dict:
     """Delete a task."""
-    if err := _check_configured():
-        return err
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
 
     try:
         if ctx:
             await ctx.info(f"Deleting task: {task_id}")
 
-        client = get_ticktick_client()
-        client.delete_task(project_id=project_id, task_id=task_id)
-        return {
-            "status": "deleted",
-            "task_id": task_id,
-            "project_id": project_id
-        }
+        get_ticktick_client().delete_task(project_id=project_id, task_id=task_id)
+        return {"status": "deleted", "task_id": task_id, "project_id": project_id}
     except Exception as e:
         logger.error(f"Failed to delete task: {e}")
         return {"error": str(e)}

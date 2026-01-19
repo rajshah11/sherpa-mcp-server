@@ -1,23 +1,20 @@
 """
 Google Calendar Integration Module
 
-This module handles Google Calendar API authentication and provides
-helper functions for calendar operations.
-
-Authentication requires GOOGLE_CALENDAR_TOKEN_JSON environment variable.
+Handles Google Calendar API authentication and calendar operations.
+Requires GOOGLE_CALENDAR_TOKEN_JSON environment variable.
 Use scripts/google_calendar_auth.py to generate the token.
 """
 
-import os
 import json
 import logging
+import os
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +38,10 @@ class GoogleCalendarClient:
         try:
             token_data = json.loads(self._token_json)
             creds = Credentials.from_authorized_user_info(token_data, SCOPES)
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Failed to parse GOOGLE_CALENDAR_TOKEN_JSON: {e}")
             return None
 
-        # Refresh if expired
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
@@ -78,6 +74,10 @@ class GoogleCalendarClient:
             return True
         creds = self._get_credentials()
         return creds is not None and creds.valid
+
+    def _format_iso_time(self, dt: datetime) -> str:
+        """Format datetime to ISO format with Z suffix."""
+        return dt.isoformat() + "Z"
 
     # ========================================================================
     # Calendar Operations
@@ -112,20 +112,18 @@ class GoogleCalendarClient:
     ) -> List[Dict[str, Any]]:
         """List events from a calendar."""
         service = self.get_service()
-
-        if time_min is None:
-            time_min = datetime.utcnow()
+        time_min = time_min or datetime.utcnow()
 
         params = {
             "calendarId": calendar_id,
             "maxResults": max_results,
-            "timeMin": time_min.isoformat() + "Z",
+            "timeMin": self._format_iso_time(time_min),
             "singleEvents": single_events,
             "orderBy": order_by
         }
 
         if time_max:
-            params["timeMax"] = time_max.isoformat() + "Z"
+            params["timeMax"] = self._format_iso_time(time_max)
         if query:
             params["q"] = query
 
@@ -137,6 +135,12 @@ class GoogleCalendarClient:
         service = self.get_service()
         event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
         return self._format_event(event)
+
+    def _build_time_field(self, dt: datetime, all_day: bool, time_zone: str) -> Dict[str, str]:
+        """Build the start/end time field for an event."""
+        if all_day:
+            return {"date": dt.strftime("%Y-%m-%d")}
+        return {"dateTime": dt.isoformat(), "timeZone": time_zone}
 
     def create_event(
         self,
@@ -153,19 +157,13 @@ class GoogleCalendarClient:
     ) -> Dict[str, Any]:
         """Create a new calendar event."""
         service = self.get_service()
+        tz = time_zone or "UTC"
 
-        if all_day:
-            event_body = {
-                "summary": summary,
-                "start": {"date": start_time.strftime("%Y-%m-%d")},
-                "end": {"date": end_time.strftime("%Y-%m-%d")}
-            }
-        else:
-            event_body = {
-                "summary": summary,
-                "start": {"dateTime": start_time.isoformat(), "timeZone": time_zone or "UTC"},
-                "end": {"dateTime": end_time.isoformat(), "timeZone": time_zone or "UTC"}
-            }
+        event_body = {
+            "summary": summary,
+            "start": self._build_time_field(start_time, all_day, tz),
+            "end": self._build_time_field(end_time, all_day, tz)
+        }
 
         if description:
             event_body["description"] = description
@@ -179,6 +177,15 @@ class GoogleCalendarClient:
         event = service.events().insert(calendarId=calendar_id, body=event_body).execute()
         logger.info(f"Created event: {event.get('id')}")
         return self._format_event(event)
+
+    def _update_event_time(
+        self, event: Dict[str, Any], field: str, dt: datetime, time_zone: Optional[str]
+    ) -> None:
+        """Update start or end time on an event, preserving all-day vs timed format."""
+        current = event.get(field, {})
+        is_all_day = "date" in current
+        tz = time_zone or current.get("timeZone", "UTC")
+        event[field] = self._build_time_field(dt, is_all_day, tz)
 
     def update_event(
         self,
@@ -201,20 +208,10 @@ class GoogleCalendarClient:
             event["description"] = description
         if location is not None:
             event["location"] = location
-
         if start_time is not None:
-            if "date" in event.get("start", {}):
-                event["start"] = {"date": start_time.strftime("%Y-%m-%d")}
-            else:
-                tz = time_zone or event.get("start", {}).get("timeZone", "UTC")
-                event["start"] = {"dateTime": start_time.isoformat(), "timeZone": tz}
-
+            self._update_event_time(event, "start", start_time, time_zone)
         if end_time is not None:
-            if "date" in event.get("end", {}):
-                event["end"] = {"date": end_time.strftime("%Y-%m-%d")}
-            else:
-                tz = time_zone or event.get("end", {}).get("timeZone", "UTC")
-                event["end"] = {"dateTime": end_time.isoformat(), "timeZone": tz}
+            self._update_event_time(event, "end", end_time, time_zone)
 
         updated = service.events().update(calendarId=calendar_id, eventId=event_id, body=event).execute()
         logger.info(f"Updated event: {event_id}")
