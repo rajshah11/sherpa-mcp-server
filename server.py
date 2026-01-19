@@ -18,8 +18,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from google_calendar import is_calendar_configured
+from meal_logger import is_meal_logger_configured
 from servers.calendar import calendar_server
 from servers.core import core_server
+from servers.meal_logger import meal_logger_server
 from servers.ticktick import ticktick_server
 from ticktick import is_ticktick_configured
 
@@ -68,10 +70,10 @@ server = FastMCP(
 
 async def compose_servers():
     """Import all sub-servers into the main server."""
-    # Import without prefix since tools already have appropriate names
     await server.import_server(core_server)
     await server.import_server(calendar_server)
     await server.import_server(ticktick_server)
+    await server.import_server(meal_logger_server)
     logger.info("Server composition complete")
 
 
@@ -83,7 +85,8 @@ def _get_integration_status() -> dict:
     """Return current integration status."""
     return {
         "google_calendar": is_calendar_configured(),
-        "ticktick": is_ticktick_configured()
+        "ticktick": is_ticktick_configured(),
+        "meal_logger": is_meal_logger_configured()
     }
 
 
@@ -98,7 +101,8 @@ async def health_check(request: Request) -> JSONResponse:
         "version": VERSION,
         "auth_enabled": auth0_enabled,
         "google_calendar_enabled": integrations["google_calendar"],
-        "ticktick_enabled": integrations["ticktick"]
+        "ticktick_enabled": integrations["ticktick"],
+        "meal_logger_enabled": integrations["meal_logger"]
     })
 
 
@@ -154,6 +158,7 @@ def _log_startup_info():
     logger.info(f"Authentication: {'Enabled (Auth0)' if auth0_enabled else 'Disabled'}")
     logger.info(f"Google Calendar: {'Enabled' if integrations['google_calendar'] else 'Disabled'}")
     logger.info(f"TickTick: {'Enabled' if integrations['ticktick'] else 'Disabled'}")
+    logger.info(f"Meal Logger: {'Enabled' if integrations['meal_logger'] else 'Disabled'}")
     logger.info(f"Server URL: {os.getenv('SERVER_BASE_URL', 'http://localhost:8000')}")
     logger.info(separator)
 
