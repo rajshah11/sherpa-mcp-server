@@ -400,9 +400,14 @@ fastmcp client http://localhost:8000/mcp --tool test_connection
 ### Project Structure
 ```
 sherpa-mcp-server/
-├── server.py                    # Main server implementation
-├── google_calendar.py           # Google Calendar integration
-├── ticktick.py                  # TickTick integration
+├── server.py                    # Main composed server
+├── servers/                     # Modular MCP servers
+│   ├── __init__.py
+│   ├── core.py                  # Core utility tools
+│   ├── calendar.py              # Google Calendar tools
+│   └── ticktick.py              # TickTick tools
+├── google_calendar.py           # Google Calendar API client
+├── ticktick.py                  # TickTick API client
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
