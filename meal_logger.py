@@ -4,10 +4,6 @@ Meal Logger Module
 Provides persistent meal logging with daily JSON files.
 Requires RAILWAY_VOLUME_MOUNT_PATH environment variable to be set.
 Files are stored as YYYY-MM-DD.json for fast daily lookups.
-
-Environment variables:
-- RAILWAY_VOLUME_MOUNT_PATH: Required. Path to Railway volume mount.
-- MEAL_LOGGER_TIMEZONE: Optional. Timezone for daily grouping (e.g., "America/Los_Angeles"). Defaults to UTC.
 """
 
 import json
@@ -18,19 +14,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from zoneinfo import ZoneInfo
+
+from config import get_timezone
 
 logger = logging.getLogger(__name__)
-
-
-def _get_timezone() -> ZoneInfo:
-    """Get configured timezone or default to UTC."""
-    tz_name = os.getenv("MEAL_LOGGER_TIMEZONE", "UTC")
-    try:
-        return ZoneInfo(tz_name)
-    except Exception:
-        logger.warning(f"Invalid timezone '{tz_name}', falling back to UTC")
-        return ZoneInfo("UTC")
 
 
 class MealType(str, Enum):
@@ -121,12 +108,12 @@ class MealLoggerClient:
 
     def _today(self) -> str:
         """Get today's date as YYYY-MM-DD in configured timezone."""
-        return datetime.now(_get_timezone()).strftime("%Y-%m-%d")
+        return datetime.now(get_timezone()).strftime("%Y-%m-%d")
 
     def _get_local_date(self, iso_timestamp: str) -> str:
         """Convert ISO timestamp to local date in configured timezone."""
         dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
-        return dt.astimezone(_get_timezone()).strftime("%Y-%m-%d")
+        return dt.astimezone(get_timezone()).strftime("%Y-%m-%d")
 
     def log_meal(
         self,

@@ -17,6 +17,7 @@ from fastmcp.server.auth.providers.auth0 import Auth0Provider
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from config import get_timezone
 from google_calendar import is_calendar_configured
 from meal_logger import is_meal_logger_configured
 from servers.calendar import calendar_server
@@ -155,6 +156,7 @@ def _log_startup_info():
     logger.info(separator)
     logger.info(f"Starting Sherpa MCP Server v{VERSION}")
     logger.info(separator)
+    logger.info(f"Timezone: {get_timezone()}")
     logger.info(f"Authentication: {'Enabled (Auth0)' if auth0_enabled else 'Disabled'}")
     logger.info(f"Google Calendar: {'Enabled' if integrations['google_calendar'] else 'Disabled'}")
     logger.info(f"TickTick: {'Enabled' if integrations['ticktick'] else 'Disabled'}")
