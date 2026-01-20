@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -36,11 +36,8 @@ class MealLoggerClient:
 
     def _ensure_data_dir(self) -> None:
         """Create data directory if it doesn't exist."""
-        try:
-            self._data_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Meal data directory: {self._data_dir}")
-        except Exception as e:
-            logger.error(f"Failed to create data directory: {e}")
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Meal data directory: {self._data_dir}")
 
     def _get_meals_file(self) -> Path:
         """Get path to the meals JSON file."""
@@ -61,10 +58,11 @@ class MealLoggerClient:
     def _save_meals(self, meals: List[Dict[str, Any]]) -> bool:
         """Save meals to JSON file."""
         try:
+            self._ensure_data_dir()
             with open(self._get_meals_file(), "w") as f:
                 json.dump(meals, f, indent=2, default=str)
             return True
-        except IOError as e:
+        except (IOError, OSError) as e:
             logger.error(f"Failed to save meals: {e}")
             return False
 
@@ -97,7 +95,7 @@ class MealLoggerClient:
         if meal_type_lower not in valid_types:
             return {"error": f"Invalid meal type. Must be one of: {valid_types}"}
 
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         meal = {
             "id": str(uuid.uuid4()),
             "description": description,
@@ -194,7 +192,7 @@ class MealLoggerClient:
         if macro_updates:
             meal["macros"] = {**meal.get("macros", {}), **macro_updates}
 
-        meal["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        meal["updated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         meals[meal_index] = meal
 
         if not self._save_meals(meals):
@@ -218,7 +216,7 @@ class MealLoggerClient:
 
     def get_daily_summary(self, date: Optional[str] = None) -> Dict[str, Any]:
         """Get nutrition summary for a specific day."""
-        target_date = date or datetime.utcnow().strftime("%Y-%m-%d")
+        target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
         meals = self._load_meals()
 
         day_meals = [
