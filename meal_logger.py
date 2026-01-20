@@ -1,8 +1,9 @@
 """
 Meal Logger Module
 
-Provides persistent meal logging with JSON file storage.
+Provides persistent meal logging with daily JSON files.
 Requires RAILWAY_VOLUME_MOUNT_PATH environment variable to be set.
+Files are stored as YYYY-MM-DD.json for fast daily lookups.
 """
 
 import json
@@ -12,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class MealType(str, Enum):
 
 
 class MealLoggerClient:
-    """Client for logging meals with persistent JSON storage."""
+    """Client for logging meals with daily JSON file storage."""
 
     def __init__(self):
         mount_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
@@ -37,34 +38,59 @@ class MealLoggerClient:
     def _ensure_data_dir(self) -> None:
         """Create data directory if it doesn't exist."""
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Meal data directory: {self._data_dir}")
 
-    def _get_meals_file(self) -> Path:
-        """Get path to the meals JSON file."""
-        return self._data_dir / "meals.json"
+    def _get_date_file(self, date: str) -> Path:
+        """Get path to the JSON file for a specific date (YYYY-MM-DD)."""
+        return self._data_dir / f"{date}.json"
 
-    def _load_meals(self) -> List[Dict[str, Any]]:
-        """Load meals from JSON file."""
-        meals_file = self._get_meals_file()
-        if not meals_file.exists():
+    def _extract_date(self, logged_at: str) -> str:
+        """Extract YYYY-MM-DD from an ISO datetime string."""
+        return logged_at[:10]
+
+    def _load_day_meals(self, date: str) -> List[Dict[str, Any]]:
+        """Load meals for a specific date."""
+        date_file = self._get_date_file(date)
+        if not date_file.exists():
             return []
         try:
-            with open(meals_file, "r") as f:
+            with open(date_file, "r") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load meals: {e}")
+            logger.error(f"Failed to load meals for {date}: {e}")
             return []
 
-    def _save_meals(self, meals: List[Dict[str, Any]]) -> bool:
-        """Save meals to JSON file."""
+    def _save_day_meals(self, date: str, meals: List[Dict[str, Any]]) -> bool:
+        """Save meals for a specific date."""
         try:
             self._ensure_data_dir()
-            with open(self._get_meals_file(), "w") as f:
+            date_file = self._get_date_file(date)
+            if not meals:
+                if date_file.exists():
+                    date_file.unlink()
+                return True
+            with open(date_file, "w") as f:
                 json.dump(meals, f, indent=2, default=str)
             return True
         except (IOError, OSError) as e:
-            logger.error(f"Failed to save meals: {e}")
+            logger.error(f"Failed to save meals for {date}: {e}")
             return False
+
+    def _list_date_files(self) -> List[str]:
+        """List all dates that have meal files, sorted descending."""
+        dates = []
+        for f in self._data_dir.glob("*.json"):
+            if f.stem and len(f.stem) == 10:  # YYYY-MM-DD format
+                dates.append(f.stem)
+        return sorted(dates, reverse=True)
+
+    def _find_meal(self, meal_id: str) -> Optional[Tuple[str, Dict[str, Any], int]]:
+        """Find a meal by ID across all files. Returns (date, meal, index) or None."""
+        for date in self._list_date_files():
+            meals = self._load_day_meals(date)
+            for i, meal in enumerate(meals):
+                if meal.get("id") == meal_id:
+                    return (date, meal, i)
+        return None
 
     def _format_meal(self, meal: Dict[str, Any]) -> Dict[str, Any]:
         """Format meal for API response."""
@@ -77,6 +103,14 @@ class MealLoggerClient:
             "created_at": meal.get("created_at"),
             "updated_at": meal.get("updated_at"),
         }
+
+    def _now_iso(self) -> str:
+        """Get current UTC time in ISO format."""
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def _today(self) -> str:
+        """Get today's date as YYYY-MM-DD."""
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     def log_meal(
         self,
@@ -95,21 +129,24 @@ class MealLoggerClient:
         if meal_type_lower not in valid_types:
             return {"error": f"Invalid meal type. Must be one of: {valid_types}"}
 
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = self._now_iso()
+        logged_at = logged_at or now
+        date = self._extract_date(logged_at)
+
         meal = {
             "id": str(uuid.uuid4()),
             "description": description,
             "meal_type": meal_type_lower,
-            "logged_at": logged_at or now,
+            "logged_at": logged_at,
             "macros": _build_macros(calories, protein, carbs, fat, fiber),
             "created_at": now,
             "updated_at": now,
         }
 
-        meals = self._load_meals()
+        meals = self._load_day_meals(date)
         meals.append(meal)
 
-        if not self._save_meals(meals):
+        if not self._save_day_meals(date, meals):
             return {"error": "Failed to save meal"}
 
         return {"status": "success", "meal": self._format_meal(meal)}
@@ -122,35 +159,32 @@ class MealLoggerClient:
         limit: int = 50,
     ) -> Dict[str, Any]:
         """List meals with optional filters."""
-        meals = self._load_meals()
+        all_meals = []
+        for date in self._list_date_files():
+            if start_date and date < start_date:
+                continue
+            if end_date and date > end_date:
+                continue
+            all_meals.extend(self._load_day_meals(date))
 
         if meal_type:
-            meals = [m for m in meals if m.get("meal_type") == meal_type.lower()]
+            all_meals = [m for m in all_meals if m.get("meal_type") == meal_type.lower()]
 
-        if start_date:
-            meals = [m for m in meals if m.get("logged_at", "") >= start_date]
-
-        if end_date:
-            meals = [m for m in meals if m.get("logged_at", "") <= end_date]
-
-        meals = sorted(meals, key=lambda m: m.get("logged_at", ""), reverse=True)
-        meals = meals[:limit]
+        all_meals = sorted(all_meals, key=lambda m: m.get("logged_at", ""), reverse=True)
+        all_meals = all_meals[:limit]
 
         return {
             "status": "success",
-            "count": len(meals),
-            "meals": [self._format_meal(m) for m in meals],
+            "count": len(all_meals),
+            "meals": [self._format_meal(m) for m in all_meals],
         }
 
     def get_meal(self, meal_id: str) -> Dict[str, Any]:
         """Get a specific meal by ID."""
-        meals = self._load_meals()
-        meal = next((m for m in meals if m.get("id") == meal_id), None)
-
-        if not meal:
+        result = self._find_meal(meal_id)
+        if not result:
             return {"error": f"Meal not found: {meal_id}"}
-
-        return {"status": "success", "meal": self._format_meal(meal)}
+        return {"status": "success", "meal": self._format_meal(result[1])}
 
     def update_meal(
         self,
@@ -165,15 +199,11 @@ class MealLoggerClient:
         fiber: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Update an existing meal."""
-        meals = self._load_meals()
-        meal_index = next(
-            (i for i, m in enumerate(meals) if m.get("id") == meal_id), None
-        )
-
-        if meal_index is None:
+        result = self._find_meal(meal_id)
+        if not result:
             return {"error": f"Meal not found: {meal_id}"}
 
-        meal = meals[meal_index]
+        old_date, meal, index = result
 
         if description is not None:
             meal["description"] = description
@@ -185,61 +215,72 @@ class MealLoggerClient:
                 return {"error": f"Invalid meal type. Must be one of: {valid_types}"}
             meal["meal_type"] = meal_type_lower
 
+        new_date = old_date
         if logged_at is not None:
             meal["logged_at"] = logged_at
+            new_date = self._extract_date(logged_at)
 
         macro_updates = _build_macros(calories, protein, carbs, fat, fiber)
         if macro_updates:
             meal["macros"] = {**meal.get("macros", {}), **macro_updates}
 
-        meal["updated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        meals[meal_index] = meal
+        meal["updated_at"] = self._now_iso()
 
-        if not self._save_meals(meals):
-            return {"error": "Failed to save meal"}
+        if new_date != old_date:
+            # Move meal to new date file
+            old_meals = self._load_day_meals(old_date)
+            old_meals.pop(index)
+            if not self._save_day_meals(old_date, old_meals):
+                return {"error": "Failed to update meal"}
+            new_meals = self._load_day_meals(new_date)
+            new_meals.append(meal)
+            if not self._save_day_meals(new_date, new_meals):
+                return {"error": "Failed to update meal"}
+        else:
+            meals = self._load_day_meals(old_date)
+            meals[index] = meal
+            if not self._save_day_meals(old_date, meals):
+                return {"error": "Failed to update meal"}
 
         return {"status": "success", "meal": self._format_meal(meal)}
 
     def delete_meal(self, meal_id: str) -> Dict[str, Any]:
         """Delete a meal."""
-        meals = self._load_meals()
-        original_count = len(meals)
-        meals = [m for m in meals if m.get("id") != meal_id]
-
-        if len(meals) == original_count:
+        result = self._find_meal(meal_id)
+        if not result:
             return {"error": f"Meal not found: {meal_id}"}
 
-        if not self._save_meals(meals):
+        date, _, index = result
+        meals = self._load_day_meals(date)
+        meals.pop(index)
+
+        if not self._save_day_meals(date, meals):
             return {"error": "Failed to delete meal"}
 
         return {"status": "success", "message": f"Meal {meal_id} deleted"}
 
     def get_daily_summary(self, date: Optional[str] = None) -> Dict[str, Any]:
         """Get nutrition summary for a specific day."""
-        target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        meals = self._load_meals()
-
-        day_meals = [
-            m for m in meals if m.get("logged_at", "").startswith(target_date)
-        ]
+        target_date = date or self._today()
+        meals = self._load_day_meals(target_date)
 
         totals = {"calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0}
-        by_type = {}
+        by_type: Dict[str, List] = {}
 
-        for meal in day_meals:
+        for meal in meals:
             macros = meal.get("macros", {})
             for key in totals:
                 totals[key] += macros.get(key, 0) or 0
 
-            meal_type = meal.get("meal_type", "unknown")
-            if meal_type not in by_type:
-                by_type[meal_type] = []
-            by_type[meal_type].append(self._format_meal(meal))
+            mt = meal.get("meal_type", "unknown")
+            if mt not in by_type:
+                by_type[mt] = []
+            by_type[mt].append(self._format_meal(meal))
 
         return {
             "status": "success",
             "date": target_date,
-            "meal_count": len(day_meals),
+            "meal_count": len(meals),
             "totals": totals,
             "meals_by_type": by_type,
         }
