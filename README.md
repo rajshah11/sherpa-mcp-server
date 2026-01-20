@@ -7,6 +7,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - 🔐 **Secure Authentication**: Auth0 OAuth 2.1 + OIDC with PKCE support
 - 📅 **Google Calendar**: Full calendar management (list, create, update, delete events)
 - ✅ **TickTick**: Task management (projects, tasks, completion tracking)
+- 🍽️ **Meal Logger**: Track meals and nutrition with persistent storage
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -37,6 +38,12 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Task CRUD operations with priorities and due dates
 - Task completion tracking
 - See [TICKTICK_SETUP.md](TICKTICK_SETUP.md) for setup
+
+✅ **Phase 4 Complete**: Meal Logger
+- Log meals with description, type, time, and macros
+- Daily nutrition summaries with macro totals
+- Persistent storage using Railway volumes
+- Configurable timezone support
 
 🚧 **Planned Integrations**:
 - Obsidian notes (filesystem synced with SyncThing)
@@ -330,6 +337,79 @@ Delete a task.
 
 **Returns**: Deletion confirmation
 
+### Meal Logger Tools
+
+> **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+
+#### `meal_log`
+Log a new meal with description, type, time, and optional macros.
+
+**Parameters**:
+- `description` (string, required): What you ate (e.g., "Grilled chicken salad with avocado")
+- `meal_type` (string, required): Type of meal - `breakfast`, `lunch`, `dinner`, or `snack`
+- `logged_at` (string, optional): ISO datetime when meal was eaten (defaults to now)
+- `calories` (float, optional): Total calories
+- `protein` (float, optional): Protein in grams
+- `carbs` (float, optional): Carbohydrates in grams
+- `fat` (float, optional): Fat in grams
+- `fiber` (float, optional): Fiber in grams
+
+**Returns**: Created meal details with ID
+
+#### `meal_list`
+List logged meals with optional filters.
+
+**Parameters**:
+- `meal_type` (string, optional): Filter by type - `breakfast`, `lunch`, `dinner`, or `snack`
+- `start_date` (string, optional): Filter meals on or after this ISO date (YYYY-MM-DD)
+- `end_date` (string, optional): Filter meals on or before this ISO date (YYYY-MM-DD)
+- `limit` (int, optional): Maximum number of meals to return (default: 50)
+
+**Returns**: List of meals with details
+
+#### `meal_get`
+Get a specific meal by ID.
+
+**Parameters**:
+- `meal_id` (string, required): The meal ID
+
+**Returns**: Meal details
+
+#### `meal_update`
+Update an existing meal.
+
+**Parameters**:
+- `meal_id` (string, required): ID of the meal to update
+- `description` (string, optional): New description
+- `meal_type` (string, optional): New meal type
+- `logged_at` (string, optional): New ISO datetime
+- `calories` (float, optional): Updated calories
+- `protein` (float, optional): Updated protein in grams
+- `carbs` (float, optional): Updated carbohydrates in grams
+- `fat` (float, optional): Updated fat in grams
+- `fiber` (float, optional): Updated fiber in grams
+
+**Returns**: Updated meal details
+
+#### `meal_delete`
+Delete a meal.
+
+**Parameters**:
+- `meal_id` (string, required): Meal ID to delete
+
+**Returns**: Deletion confirmation
+
+#### `meal_daily_summary`
+Get nutrition summary for a specific day.
+
+**Parameters**:
+- `date` (string, optional): ISO date (YYYY-MM-DD) to summarize. Defaults to today.
+
+**Returns**: Daily summary including:
+- Total meal count
+- Macro totals (calories, protein, carbs, fat, fiber)
+- Meals grouped by type (breakfast, lunch, dinner, snack)
+
 ## Connecting to Claude Desktop
 
 To use this server with Claude Desktop:
@@ -379,7 +459,8 @@ Expected response:
   "version": "1.0.0",
   "auth_enabled": false,
   "google_calendar_enabled": true,
-  "ticktick_enabled": true
+  "ticktick_enabled": true,
+  "meal_logger_enabled": true
 }
 ```
 
@@ -401,13 +482,16 @@ fastmcp client http://localhost:8000/mcp --tool test_connection
 ```
 sherpa-mcp-server/
 ├── server.py                    # Main composed server
+├── config.py                    # Shared configuration (timezone, etc.)
 ├── servers/                     # Modular MCP servers
 │   ├── __init__.py
 │   ├── core.py                  # Core utility tools
 │   ├── calendar.py              # Google Calendar tools
-│   └── ticktick.py              # TickTick tools
+│   ├── ticktick.py              # TickTick tools
+│   └── meal_logger.py           # Meal logging tools
 ├── google_calendar.py           # Google Calendar API client
 ├── ticktick.py                  # TickTick API client
+├── meal_logger.py               # Meal logger with persistent storage
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -594,9 +678,10 @@ For issues and questions:
 - ✅ Phase 1.5: Docker containerization and Railway deployment
 - ✅ Phase 2: Google Calendar integration
 - ✅ Phase 3: TickTick task management
-- 🚧 Phase 4: Obsidian notes integration
-- 🚧 Phase 5: Health data management
-- 🚧 Phase 6: Advanced AI-powered features
+- ✅ Phase 4: Meal logger with persistent storage
+- 🚧 Phase 5: Obsidian notes integration
+- 🚧 Phase 6: Health data management
+- 🚧 Phase 7: Advanced AI-powered features
 
 ---
 

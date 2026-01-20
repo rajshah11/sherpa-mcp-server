@@ -120,6 +120,33 @@ GOOGLE_CALENDAR_TOKEN_JSON='{"token":"...","refresh_token":"...","client_id":"..
 
 No files needed - everything is stored in environment variables.
 
+#### Meal Logger Configuration (Optional)
+
+If using the Meal Logger integration, you need to set up a Railway volume for persistent storage.
+
+**Step 1: Create a Volume**
+
+1. In your Railway project, press `⌘K` (or right-click on canvas)
+2. Select **Add Volume**
+3. Attach it to your sherpa-mcp-server service
+4. Set mount path to `/data`
+
+**Step 2: Add Environment Variables**
+
+```
+RAILWAY_RUN_UID=0
+TIMEZONE=America/Los_Angeles
+```
+
+- `RAILWAY_RUN_UID=0`: Required for volume write permissions (Railway volumes mount as root)
+- `TIMEZONE`: Your timezone for daily meal grouping (e.g., `America/Los_Angeles`, `America/New_York`, `Europe/London`). Defaults to `UTC`.
+
+**Note**: `RAILWAY_VOLUME_MOUNT_PATH` is automatically set by Railway when you attach a volume.
+
+**Step 3: Redeploy**
+
+After adding the volume and environment variables, redeploy your service for changes to take effect.
+
 ### Step 3: Use Railway's Secret Manager (Optional)
 
 For sensitive values like `AUTH0_CLIENT_SECRET`:
@@ -255,7 +282,9 @@ Expected response:
   "service": "sherpa-mcp-server",
   "version": "1.0.0",
   "auth_enabled": true,
-  "google_calendar_enabled": true
+  "google_calendar_enabled": true,
+  "ticktick_enabled": true,
+  "meal_logger_enabled": true
 }
 ```
 
@@ -313,8 +342,11 @@ You'll see your application logs:
 ============================================================
 Starting Sherpa MCP Server v1.0.0
 ============================================================
+Timezone: America/Los_Angeles
 Authentication: Enabled (Auth0)
 Google Calendar: Enabled
+TickTick: Enabled
+Meal Logger: Enabled
 Server URL: https://sherpa-mcp-production.up.railway.app
 ============================================================
 Starting server on 0.0.0.0:8080
@@ -534,6 +566,10 @@ Before going to production:
 - [ ] Railway resource limits configured
 - [ ] Google Calendar credentials deployed (if using calendar integration)
 - [ ] Calendar tools tested in production
+- [ ] TickTick credentials deployed (if using task management)
+- [ ] Railway volume attached for Meal Logger (if using meal tracking)
+- [ ] `RAILWAY_RUN_UID=0` set for volume permissions
+- [ ] `TIMEZONE` configured for your local timezone
 
 ## Next Steps
 
