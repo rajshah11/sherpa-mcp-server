@@ -4,6 +4,10 @@ Meal Logger Module
 Provides persistent meal logging with daily JSON files.
 Requires RAILWAY_VOLUME_MOUNT_PATH environment variable to be set.
 Files are stored as YYYY-MM-DD.json for fast daily lookups.
+
+Environment variables:
+- RAILWAY_VOLUME_MOUNT_PATH: Required. Path to Railway volume mount.
+- MEAL_LOGGER_TIMEZONE: Optional. Timezone for daily grouping (e.g., "America/Los_Angeles"). Defaults to UTC.
 """
 
 import json
@@ -14,8 +18,19 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _get_timezone() -> ZoneInfo:
+    """Get configured timezone or default to UTC."""
+    tz_name = os.getenv("MEAL_LOGGER_TIMEZONE", "UTC")
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        logger.warning(f"Invalid timezone '{tz_name}', falling back to UTC")
+        return ZoneInfo("UTC")
 
 
 class MealType(str, Enum):
@@ -42,10 +57,6 @@ class MealLoggerClient:
     def _get_date_file(self, date: str) -> Path:
         """Get path to the JSON file for a specific date (YYYY-MM-DD)."""
         return self._data_dir / f"{date}.json"
-
-    def _extract_date(self, logged_at: str) -> str:
-        """Extract YYYY-MM-DD from an ISO datetime string."""
-        return logged_at[:10]
 
     def _load_day_meals(self, date: str) -> List[Dict[str, Any]]:
         """Load meals for a specific date."""
@@ -105,12 +116,17 @@ class MealLoggerClient:
         }
 
     def _now_iso(self) -> str:
-        """Get current UTC time in ISO format."""
+        """Get current time in ISO format (UTC for storage)."""
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     def _today(self) -> str:
-        """Get today's date as YYYY-MM-DD."""
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        """Get today's date as YYYY-MM-DD in configured timezone."""
+        return datetime.now(_get_timezone()).strftime("%Y-%m-%d")
+
+    def _get_local_date(self, iso_timestamp: str) -> str:
+        """Convert ISO timestamp to local date in configured timezone."""
+        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
+        return dt.astimezone(_get_timezone()).strftime("%Y-%m-%d")
 
     def log_meal(
         self,
@@ -131,7 +147,7 @@ class MealLoggerClient:
 
         now = self._now_iso()
         logged_at = logged_at or now
-        date = self._extract_date(logged_at)
+        date = self._get_local_date(logged_at)
 
         meal = {
             "id": str(uuid.uuid4()),
@@ -218,7 +234,7 @@ class MealLoggerClient:
         new_date = old_date
         if logged_at is not None:
             meal["logged_at"] = logged_at
-            new_date = self._extract_date(logged_at)
+            new_date = self._get_local_date(logged_at)
 
         macro_updates = _build_macros(calories, protein, carbs, fat, fiber)
         if macro_updates:
