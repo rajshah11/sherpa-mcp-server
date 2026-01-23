@@ -8,6 +8,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - 📅 **Google Calendar**: Full calendar management (list, create, update, delete events)
 - ✅ **TickTick**: Task management (projects, tasks, completion tracking)
 - 🍽️ **Meal Logger**: Track meals and nutrition with persistent storage
+- 📝 **Obsidian**: Direct markdown note manipulation with Syncthing sync
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -45,9 +46,17 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Persistent storage using Railway volumes
 - Configurable timezone support
 
+✅ **Phase 5 Complete**: Obsidian Integration
+- Direct markdown file manipulation
+- Create, read, update, delete notes
+- Search and list notes
+- Daily note templates
+- Syncthing cross-device synchronization
+- See [OBSIDIAN_SYNCTHING_SETUP.md](OBSIDIAN_SYNCTHING_SETUP.md) for setup
+
 🚧 **Planned Integrations**:
-- Obsidian notes (filesystem synced with SyncThing)
 - Health data management
+- Advanced AI-powered workflows
 
 ## Quick Start
 
@@ -410,6 +419,84 @@ Get nutrition summary for a specific day.
 - Macro totals (calories, protein, carbs, fat, fiber)
 - Meals grouped by type (breakfast, lunch, dinner, snack)
 
+### Obsidian Tools
+
+> **Note**: These tools require Obsidian vault path configuration. See [OBSIDIAN_SYNCTHING_SETUP.md](OBSIDIAN_SYNCTHING_SETUP.md)
+
+#### `obsidian_create_note`
+Create a new markdown note in the Obsidian vault.
+
+**Parameters**:
+- `note_path` (string, required): Relative path from vault root (e.g., "Daily Notes/2026-01-23.md")
+- `content` (string, required): Markdown content for the note
+- `tags` (string, optional): Comma-separated tags (e.g., "work,urgent,meeting")
+- `overwrite` (boolean, optional): If True, overwrite existing file (default: False)
+
+**Returns**: Created note details with path
+
+#### `obsidian_read_note`
+Read a markdown note from the Obsidian vault.
+
+**Parameters**:
+- `note_path` (string, required): Relative path from vault root
+
+**Returns**: Note content including:
+- Frontmatter metadata
+- Markdown content
+- Full raw content
+
+#### `obsidian_update_note`
+Update an existing markdown note.
+
+**Parameters**:
+- `note_path` (string, required): Relative path from vault root
+- `content` (string, optional): New content (if None, keeps existing)
+- `tags` (string, optional): Update tags
+- `append` (boolean, optional): If True, append content instead of replacing (default: False)
+
+**Returns**: Updated note confirmation
+
+#### `obsidian_delete_note`
+Delete a markdown note from the Obsidian vault.
+
+**Parameters**:
+- `note_path` (string, required): Relative path from vault root
+
+**Returns**: Deletion confirmation
+
+#### `obsidian_list_notes`
+List markdown notes in the vault.
+
+**Parameters**:
+- `folder` (string, optional): Folder to search in (e.g., "Daily Notes")
+- `pattern` (string, optional): Glob pattern (e.g., "*.md", "daily-*.md")
+- `recursive` (boolean, optional): Search subdirectories (default: True)
+
+**Returns**: List of notes with:
+- Path
+- Name
+- Last modified time
+
+#### `obsidian_search_notes`
+Search for text within notes.
+
+**Parameters**:
+- `query` (string, required): Search query (case-insensitive)
+- `folder` (string, optional): Limit search to specific folder
+
+**Returns**: List of matching notes with:
+- Path
+- Match count
+- Context snippet
+
+#### `obsidian_create_daily_note`
+Create or get today's daily note.
+
+**Parameters**:
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+
+**Returns**: Daily note details or confirmation if already exists
+
 ## Connecting to Claude Desktop
 
 To use this server with Claude Desktop:
@@ -460,7 +547,8 @@ Expected response:
   "auth_enabled": false,
   "google_calendar_enabled": true,
   "ticktick_enabled": true,
-  "meal_logger_enabled": true
+  "meal_logger_enabled": true,
+  "obsidian_enabled": true
 }
 ```
 
@@ -488,10 +576,12 @@ sherpa-mcp-server/
 │   ├── core.py                  # Core utility tools
 │   ├── calendar.py              # Google Calendar tools
 │   ├── ticktick.py              # TickTick tools
-│   └── meal_logger.py           # Meal logging tools
+│   ├── meal_logger.py           # Meal logging tools
+│   └── obsidian.py              # Obsidian markdown tools
 ├── google_calendar.py           # Google Calendar API client
 ├── ticktick.py                  # TickTick API client
 ├── meal_logger.py               # Meal logger with persistent storage
+├── obsidian.py                  # Obsidian markdown file client
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -502,6 +592,7 @@ sherpa-mcp-server/
 ├── AUTH0_SETUP.md               # Auth0 setup guide
 ├── GOOGLE_CALENDAR_SETUP.md     # Google Calendar setup guide
 ├── TICKTICK_SETUP.md            # TickTick setup guide
+├── OBSIDIAN_SYNCTHING_SETUP.md  # Obsidian + Syncthing setup guide
 ├── RAILWAY_DEPLOYMENT.md        # Railway deployment guide
 └── scripts/
     ├── google_calendar_auth.py  # Google Calendar auth script
@@ -659,6 +750,8 @@ This project is licensed under the MIT License - see LICENSE file for details.
 - [Auth0 Documentation](https://auth0.com/docs)
 - [Google Calendar API Documentation](https://developers.google.com/calendar/api)
 - [TickTick Open API Documentation](https://developer.ticktick.com)
+- [Obsidian Documentation](https://help.obsidian.md)
+- [Syncthing Documentation](https://docs.syncthing.net)
 - [Railway Documentation](https://docs.railway.app)
 - [Claude Desktop Documentation](https://claude.ai/docs)
 
@@ -668,6 +761,7 @@ For issues and questions:
 - Check [AUTH0_SETUP.md](AUTH0_SETUP.md) for Auth0-related questions
 - Check [GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md) for Google Calendar setup
 - Check [TICKTICK_SETUP.md](TICKTICK_SETUP.md) for TickTick setup
+- Check [OBSIDIAN_SYNCTHING_SETUP.md](OBSIDIAN_SYNCTHING_SETUP.md) for Obsidian + Syncthing setup
 - Check [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for Railway deployment help
 - Review FastMCP documentation at https://gofastmcp.com
 - Open an issue in this repository
@@ -679,9 +773,9 @@ For issues and questions:
 - ✅ Phase 2: Google Calendar integration
 - ✅ Phase 3: TickTick task management
 - ✅ Phase 4: Meal logger with persistent storage
-- 🚧 Phase 5: Obsidian notes integration
+- ✅ Phase 5: Obsidian notes integration with Syncthing sync
 - 🚧 Phase 6: Health data management
-- 🚧 Phase 7: Advanced AI-powered features
+- 🚧 Phase 7: Advanced AI-powered workflows and automation
 
 ---
 
