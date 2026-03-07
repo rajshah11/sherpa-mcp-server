@@ -119,6 +119,10 @@ For production with Auth0:
    AUTH0_CLIENT_SECRET=your-client-secret
    AUTH0_AUDIENCE=https://api.your-app.com
    SERVER_BASE_URL=https://your-server.com
+   # Optional: keep empty for best ChatGPT App compatibility
+   AUTH_REQUIRED_SCOPES=
+   # Optional: must include OpenAI redirect patterns when using ChatGPT App
+   AUTH_ALLOWED_REDIRECT_URIS=http://localhost:*,https://chat.openai.com/aip/*,https://chatgpt.com/aip/*
    ```
 
 3. **Run the server**:
@@ -139,6 +143,7 @@ For production with Auth0:
 ### OAuth Endpoints (when Auth0 is enabled)
 - **GET** `/.well-known/oauth-authorization-server` - OAuth metadata
 - **GET** `/.well-known/oauth-protected-resource` - Protected resource metadata
+- **GET** `/.well-known/openid-configuration` - OIDC discovery (proxied from Auth0)
 - **GET** `/auth/callback` - OAuth callback endpoint
 
 ## Available Tools
@@ -442,6 +447,8 @@ To use this server with Claude Desktop:
    ```
 
 See [AUTH0_SETUP.md](AUTH0_SETUP.md) for complete Auth0 configuration.
+
+For ChatGPT App developer mode configuration, see [CHATGPT_APP_SETUP.md](CHATGPT_APP_SETUP.md).
 
 ## Testing the Server
 
