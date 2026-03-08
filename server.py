@@ -56,6 +56,7 @@ def _parse_csv_env(var_name: str, default: list[str]) -> list[str]:
 
 DEFAULT_ALLOWED_REDIRECT_URIS = [
     "http://localhost:*",
+    "https://claude.ai/api/mcp/auth_callback",
     "https://chat.openai.com/aip/*",
     "https://chatgpt.com/aip/*",
     "https://chat.openai.com/connector/oauth/*",
