@@ -49,7 +49,7 @@ if auth0_enabled:
         audience=os.getenv("AUTH0_AUDIENCE"),
         base_url=os.getenv("SERVER_BASE_URL", "http://localhost:8000"),
         required_scopes=["openid", "profile"],
-        allowed_client_redirect_uris=["http://localhost:*"],
+        allowed_client_redirect_uris=["http://localhost:*", "https://claude.ai/api/mcp/auth_callback"],
         require_authorization_consent=os.getenv("REQUIRE_CONSENT", "true").lower() == "true",
     )
     logger.info("Auth0 OAuth configured successfully")
