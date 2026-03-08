@@ -40,6 +40,24 @@ VERSION = "1.0.0"
 AUTH0_ENV_VARS = ["AUTH0_CONFIG_URL", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET", "AUTH0_AUDIENCE"]
 auth0_enabled = all(os.getenv(var) for var in AUTH0_ENV_VARS)
 
+_DEFAULT_REDIRECT_URIS = [
+    "http://localhost:*",
+    "https://claude.ai/api/mcp/auth_callback",
+]
+
+
+def _get_allowed_redirect_uris() -> list[str]:
+    """Return allowed client redirect URIs from env or defaults.
+
+    Set ALLOWED_CLIENT_REDIRECT_URIS as a comma-separated list to override.
+    The defaults include localhost (for local MCP clients) and Claude.ai.
+    """
+    env_value = os.getenv("ALLOWED_CLIENT_REDIRECT_URIS", "")
+    if env_value:
+        return [uri.strip() for uri in env_value.split(",") if uri.strip()]
+    return _DEFAULT_REDIRECT_URIS
+
+
 if auth0_enabled:
     logger.info("Configuring Auth0 OAuth authentication...")
     auth = Auth0Provider(
@@ -49,7 +67,7 @@ if auth0_enabled:
         audience=os.getenv("AUTH0_AUDIENCE"),
         base_url=os.getenv("SERVER_BASE_URL", "http://localhost:8000"),
         required_scopes=["openid", "profile"],
-        allowed_client_redirect_uris=["http://localhost:*"],
+        allowed_client_redirect_uris=_get_allowed_redirect_uris(),
         require_authorization_consent=os.getenv("REQUIRE_CONSENT", "true").lower() == "true",
     )
     logger.info("Auth0 OAuth configured successfully")
