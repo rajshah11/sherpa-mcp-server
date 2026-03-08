@@ -43,6 +43,7 @@ auth0_enabled = all(os.getenv(var) for var in AUTH0_ENV_VARS)
 _DEFAULT_REDIRECT_URIS = [
     "http://localhost:*",
     "https://claude.ai/api/mcp/auth_callback",
+    "https://chatgpt.com/connector/oauth/*",
 ]
 
 
@@ -50,7 +51,7 @@ def _get_allowed_redirect_uris() -> list[str]:
     """Return allowed client redirect URIs from env or defaults.
 
     Set ALLOWED_CLIENT_REDIRECT_URIS as a comma-separated list to override.
-    The defaults include localhost (for local MCP clients) and Claude.ai.
+    The defaults include localhost (for local MCP clients), Claude.ai, and ChatGPT.
     """
     env_value = os.getenv("ALLOWED_CLIENT_REDIRECT_URIS", "")
     if env_value:
