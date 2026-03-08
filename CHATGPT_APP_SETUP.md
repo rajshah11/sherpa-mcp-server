@@ -19,7 +19,7 @@ In Railway, set:
 AUTH0_CONFIG_URL=https://YOUR_DOMAIN.auth0.com/.well-known/openid-configuration
 AUTH0_CLIENT_ID=YOUR_AUTH0_APP_CLIENT_ID
 AUTH0_CLIENT_SECRET=YOUR_AUTH0_APP_CLIENT_SECRET
-AUTH0_AUDIENCE=https://api.sherpa-mcp.com
+AUTH0_AUDIENCE=https://YOUR_PUBLIC_RAILWAY_DOMAIN/mcp
 SERVER_BASE_URL=https://YOUR_PUBLIC_RAILWAY_DOMAIN
 REQUIRE_CONSENT=true
 ```
@@ -31,7 +31,8 @@ Recommended for ChatGPT App compatibility:
 AUTH_REQUIRED_SCOPES=
 
 # Include OpenAI callback URL patterns
-AUTH_ALLOWED_REDIRECT_URIS=http://localhost:*,https://chat.openai.com/aip/*,https://chatgpt.com/aip/*
+AUTH_ALLOWED_REDIRECT_URIS=http://localhost:*,https://chat.openai.com/aip/*,https://chatgpt.com/aip/*,https://chat.openai.com/connector/oauth/*,https://chatgpt.com/connector/oauth/*
+AUTH_AUTO_REGISTER_UNKNOWN_CLIENTS=true
 ```
 
 ## 2) Configure Auth0 correctly
@@ -39,7 +40,7 @@ AUTH_ALLOWED_REDIRECT_URIS=http://localhost:*,https://chat.openai.com/aip/*,http
 In Auth0:
 
 1. Create/use an **Application** (Regular Web App is typical).
-2. Create/use an **API** and set its Identifier to exactly your `AUTH0_AUDIENCE` value.
+2. Create/use an **API** and set its Identifier to exactly your MCP resource URL (typically `https://YOUR_PUBLIC_RAILWAY_DOMAIN/mcp`).
 3. In the Application's allowed URLs, include:
    - `https://chat.openai.com/aip/*`
    - `https://chatgpt.com/aip/*`
@@ -66,9 +67,11 @@ After linking in ChatGPT App dev mode, test:
 curl -i https://YOUR_PUBLIC_RAILWAY_DOMAIN/health
 ```
 
-Then try a tool call from ChatGPT. If `/mcp` still returns `401 invalid_token`, check:
+Then try a tool call from ChatGPT. If you see an authorization page saying `The client ID ... was not found in the server's client registry`, make sure `AUTH_AUTO_REGISTER_UNKNOWN_CLIENTS=true` (or pre-register that client manually).
 
-- `AUTH0_AUDIENCE` matches Auth0 API Identifier exactly.
+If `/mcp` still returns `401 invalid_token`, check:
+
+- `AUTH0_AUDIENCE` matches `https://YOUR_PUBLIC_RAILWAY_DOMAIN/mcp` and Auth0 API Identifier exactly.
 - Token `iss` matches your Auth0 tenant.
 - You did not set restrictive `AUTH_REQUIRED_SCOPES` that ChatGPT token does not include.
 
@@ -86,4 +89,4 @@ ChatGPT should discover OAuth metadata automatically from your server.
 - `SERVER_BASE_URL` must match your externally reachable HTTPS URL.
 - Auth0 Application must allow OpenAI redirect patterns.
 - `AUTH_REQUIRED_SCOPES` should be empty unless you truly need scope checks.
-- `AUTH0_AUDIENCE` must exactly equal your Auth0 API Identifier.
+- `AUTH0_AUDIENCE` must exactly equal your MCP resource URL and Auth0 API Identifier.

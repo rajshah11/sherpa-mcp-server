@@ -117,12 +117,14 @@ For production with Auth0:
    AUTH0_CONFIG_URL=https://YOUR_DOMAIN.auth0.com/.well-known/openid-configuration
    AUTH0_CLIENT_ID=your-client-id
    AUTH0_CLIENT_SECRET=your-client-secret
-   AUTH0_AUDIENCE=https://api.your-app.com
+   AUTH0_AUDIENCE=https://your-server.com/mcp  # Recommended for ChatGPT App resource flow
    SERVER_BASE_URL=https://your-server.com
    # Optional: keep empty for best ChatGPT App compatibility
    AUTH_REQUIRED_SCOPES=
    # Optional: must include OpenAI redirect patterns when using ChatGPT App
-   AUTH_ALLOWED_REDIRECT_URIS=http://localhost:*,https://chat.openai.com/aip/*,https://chatgpt.com/aip/*
+   AUTH_ALLOWED_REDIRECT_URIS=http://localhost:*,https://chat.openai.com/aip/*,https://chatgpt.com/aip/*,https://chat.openai.com/connector/oauth/*,https://chatgpt.com/connector/oauth/*
+   # Optional: auto-register unknown OAuth clients (recommended for ChatGPT dev mode)
+   AUTH_AUTO_REGISTER_UNKNOWN_CLIENTS=true
    ```
 
 3. **Run the server**:
@@ -580,7 +582,7 @@ This project is ready for deployment on Railway with Docker support.
 AUTH0_CONFIG_URL=https://YOUR_DOMAIN.auth0.com/.well-known/openid-configuration
 AUTH0_CLIENT_ID=your-production-client-id
 AUTH0_CLIENT_SECRET=your-production-client-secret
-AUTH0_AUDIENCE=https://api.sherpa-mcp.com
+AUTH0_AUDIENCE=https://your-server.com/mcp
 SERVER_BASE_URL=https://your-app.up.railway.app
 REQUIRE_CONSENT=true
 ```
@@ -610,7 +612,7 @@ docker run -p 8000:8000 \
   -e AUTH0_CONFIG_URL="https://YOUR_DOMAIN.auth0.com/.well-known/openid-configuration" \
   -e AUTH0_CLIENT_ID="your-client-id" \
   -e AUTH0_CLIENT_SECRET="your-client-secret" \
-  -e AUTH0_AUDIENCE="https://api.sherpa-mcp.com" \
+  -e AUTH0_AUDIENCE="https://your-server.com/mcp" \
   -e SERVER_BASE_URL="https://your-domain.com" \
   sherpa-mcp-server
 ```
