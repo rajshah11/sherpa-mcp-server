@@ -10,12 +10,10 @@ import asyncio
 import datetime
 import logging
 import os
-from typing import Any
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.auth0 import Auth0Provider
-import httpx
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -42,24 +40,6 @@ VERSION = "1.0.0"
 AUTH0_ENV_VARS = ["AUTH0_CONFIG_URL", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET", "AUTH0_AUDIENCE"]
 auth0_enabled = all(os.getenv(var) for var in AUTH0_ENV_VARS)
 
-
-def _parse_csv_env(var_name: str, default: list[str]) -> list[str]:
-    """Parse comma-separated environment variable into a cleaned list."""
-    value = os.getenv(var_name)
-    if not value:
-        return default
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
-DEFAULT_ALLOWED_REDIRECT_URIS = [
-    "http://localhost:*",
-    "https://chat.openai.com/aip/*",
-    "https://chatgpt.com/aip/*",
-]
-
-required_scopes = _parse_csv_env("AUTH_REQUIRED_SCOPES", default=[])
-allowed_redirect_uris = _parse_csv_env("AUTH_ALLOWED_REDIRECT_URIS", default=DEFAULT_ALLOWED_REDIRECT_URIS)
-
 if auth0_enabled:
     logger.info("Configuring Auth0 OAuth authentication...")
     auth = Auth0Provider(
@@ -68,8 +48,8 @@ if auth0_enabled:
         client_secret=os.getenv("AUTH0_CLIENT_SECRET"),
         audience=os.getenv("AUTH0_AUDIENCE"),
         base_url=os.getenv("SERVER_BASE_URL", "http://localhost:8000"),
-        required_scopes=required_scopes,
-        allowed_client_redirect_uris=allowed_redirect_uris,
+        required_scopes=["openid", "profile"],
+        allowed_client_redirect_uris=["http://localhost:*"],
         require_authorization_consent=os.getenv("REQUIRE_CONSENT", "true").lower() == "true",
     )
     logger.info("Auth0 OAuth configured successfully")
@@ -138,9 +118,7 @@ async def server_info(request: Request) -> JSONResponse:
         "transport": "streamable-http",
         "authentication": {
             "enabled": auth0_enabled,
-            "provider": "Auth0" if auth0_enabled else None,
-            "required_scopes": required_scopes if auth0_enabled else [],
-            "allowed_client_redirect_uris": allowed_redirect_uris if auth0_enabled else []
+            "provider": "Auth0" if auth0_enabled else None
         },
         "endpoints": {
             "health": "/health",
@@ -151,50 +129,6 @@ async def server_info(request: Request) -> JSONResponse:
         "integrations": _get_integration_status(),
         "timestamp": datetime.datetime.now().isoformat()
     })
-
-
-@server.custom_route("/.well-known/openid-configuration", methods=["GET"])
-async def openid_configuration(request: Request) -> JSONResponse:
-    """
-    OIDC discovery endpoint at the MCP server origin.
-
-    Some MCP clients probe this path on the server host during OAuth discovery.
-    We proxy Auth0's discovery document so discovery succeeds consistently.
-    """
-    if not auth0_enabled:
-        return JSONResponse(
-            {
-                "error": "authentication_not_configured",
-                "error_description": "Auth0 is not configured on this server"
-            },
-            status_code=404,
-        )
-
-    config_url = os.getenv("AUTH0_CONFIG_URL")
-    if not config_url:
-        return JSONResponse(
-            {
-                "error": "server_error",
-                "error_description": "AUTH0_CONFIG_URL is not set"
-            },
-            status_code=500,
-        )
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(config_url)
-            response.raise_for_status()
-            payload: dict[str, Any] = response.json()
-            return JSONResponse(payload)
-    except Exception as exc:  # pragma: no cover - defensive runtime path
-        logger.exception("Failed to fetch Auth0 OIDC discovery document")
-        return JSONResponse(
-            {
-                "error": "server_error",
-                "error_description": f"Failed to fetch Auth0 discovery document: {exc}"
-            },
-            status_code=502,
-        )
 
 
 @server.custom_route("/", methods=["GET"])
