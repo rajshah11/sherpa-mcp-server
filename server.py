@@ -85,6 +85,24 @@ class ChatGPTCompatibleAuth0Provider(Auth0Provider):
         )
         return await super().get_client(client_id)
 
+
+def _parse_csv_env(var_name: str, default: list[str]) -> list[str]:
+    """Parse comma-separated environment variable into a cleaned list."""
+    value = os.getenv(var_name)
+    if not value:
+        return default
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+DEFAULT_ALLOWED_REDIRECT_URIS = [
+    "http://localhost:*",
+    "https://chat.openai.com/aip/*",
+    "https://chatgpt.com/aip/*",
+]
+
+required_scopes = _parse_csv_env("AUTH_REQUIRED_SCOPES", default=[])
+allowed_redirect_uris = _parse_csv_env("AUTH_ALLOWED_REDIRECT_URIS", default=DEFAULT_ALLOWED_REDIRECT_URIS)
+
 if auth0_enabled:
     logger.info("Configuring Auth0 OAuth authentication...")
     auth = ChatGPTCompatibleAuth0Provider(
