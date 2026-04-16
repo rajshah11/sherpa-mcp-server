@@ -194,7 +194,8 @@ class TickTickClient:
         due_date: Optional[datetime] = None,
         time_zone: Optional[str] = None,
         is_all_day: Optional[bool] = None,
-        priority: Optional[int] = None
+        priority: Optional[int] = None,
+        items: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """Update an existing task."""
         client = self._get_client()
@@ -214,6 +215,8 @@ class TickTickClient:
             body["startDate"] = self._format_datetime(start_date)
         if due_date is not None:
             body["dueDate"] = self._format_datetime(due_date)
+        if items is not None:
+            body["items"] = items
 
         response = client.post(f"/task/{task_id}", json=body)
         response.raise_for_status()

@@ -4,7 +4,7 @@ TickTick MCP Server - Task management tools.
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastmcp import Context, FastMCP
 
@@ -163,9 +163,10 @@ async def create_task(
     time_zone: str = "America/Los_Angeles",
     is_all_day: bool = False,
     priority: int = 0,
+    items: Optional[List[Dict[str, Any]]] = None,
     ctx: Context = None
 ) -> dict:
-    """Create a new task."""
+    """Create a new task, optionally with an initial list of checklist items."""
     if not is_ticktick_configured():
         return NOT_CONFIGURED_ERROR
 
@@ -185,7 +186,8 @@ async def create_task(
             due_date=due_dt,
             time_zone=time_zone,
             is_all_day=is_all_day,
-            priority=priority
+            priority=priority,
+            items=items
         )
         return {"status": "created", "task": task}
     except Exception as e:
@@ -208,9 +210,10 @@ async def update_task(
     time_zone: Optional[str] = None,
     is_all_day: Optional[bool] = None,
     priority: Optional[int] = None,
+    items: Optional[List[Dict[str, Any]]] = None,
     ctx: Context = None
 ) -> dict:
-    """Update an existing task."""
+    """Update an existing task. Pass items to replace the full checklist (each item needs at least a title)."""
     if not is_ticktick_configured():
         return NOT_CONFIGURED_ERROR
 
@@ -231,7 +234,8 @@ async def update_task(
             due_date=due_dt,
             time_zone=time_zone,
             is_all_day=is_all_day,
-            priority=priority
+            priority=priority,
+            items=items
         )
         return {"status": "updated", "task": task}
     except Exception as e:
