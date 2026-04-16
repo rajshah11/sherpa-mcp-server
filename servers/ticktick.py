@@ -285,3 +285,129 @@ async def delete_task(
     except Exception as e:
         logger.error(f"Failed to delete task: {e}")
         return {"error": str(e)}
+
+
+# ============================================================================
+# Item Tools (checklist items within a task)
+# ============================================================================
+
+@ticktick_server.tool(
+    name="ticktick_add_item",
+    description="Add a checklist item to a TickTick task"
+)
+async def add_item(
+    task_id: str,
+    project_id: str,
+    title: str,
+    time_zone: Optional[str] = None,
+    ctx: Context = None
+) -> dict:
+    """Add a checklist item to an existing task."""
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
+
+    try:
+        if ctx:
+            await ctx.info(f"Adding item '{title}' to task: {task_id}")
+
+        task = get_ticktick_client().add_item(
+            task_id=task_id,
+            project_id=project_id,
+            title=title,
+            time_zone=time_zone
+        )
+        return {"status": "item_added", "task": task}
+    except Exception as e:
+        logger.error(f"Failed to add item: {e}")
+        return {"error": str(e)}
+
+
+@ticktick_server.tool(
+    name="ticktick_update_item",
+    description="Update a checklist item in a TickTick task"
+)
+async def update_item(
+    task_id: str,
+    project_id: str,
+    item_id: str,
+    title: Optional[str] = None,
+    status: Optional[int] = None,
+    ctx: Context = None
+) -> dict:
+    """Update an existing checklist item (title and/or status: 0=incomplete, 2=complete)."""
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
+
+    try:
+        if ctx:
+            await ctx.info(f"Updating item {item_id} in task: {task_id}")
+
+        task = get_ticktick_client().update_item(
+            task_id=task_id,
+            project_id=project_id,
+            item_id=item_id,
+            title=title,
+            status=status
+        )
+        return {"status": "item_updated", "task": task}
+    except Exception as e:
+        logger.error(f"Failed to update item: {e}")
+        return {"error": str(e)}
+
+
+@ticktick_server.tool(
+    name="ticktick_complete_item",
+    description="Mark a checklist item as complete in a TickTick task"
+)
+async def complete_item(
+    task_id: str,
+    project_id: str,
+    item_id: str,
+    ctx: Context = None
+) -> dict:
+    """Mark a checklist item as complete."""
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
+
+    try:
+        if ctx:
+            await ctx.info(f"Completing item {item_id} in task: {task_id}")
+
+        task = get_ticktick_client().complete_item(
+            task_id=task_id,
+            project_id=project_id,
+            item_id=item_id
+        )
+        return {"status": "item_completed", "task": task}
+    except Exception as e:
+        logger.error(f"Failed to complete item: {e}")
+        return {"error": str(e)}
+
+
+@ticktick_server.tool(
+    name="ticktick_delete_item",
+    description="Delete a checklist item from a TickTick task"
+)
+async def delete_item(
+    task_id: str,
+    project_id: str,
+    item_id: str,
+    ctx: Context = None
+) -> dict:
+    """Delete a checklist item from a task."""
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
+
+    try:
+        if ctx:
+            await ctx.info(f"Deleting item {item_id} from task: {task_id}")
+
+        task = get_ticktick_client().delete_item(
+            task_id=task_id,
+            project_id=project_id,
+            item_id=item_id
+        )
+        return {"status": "item_deleted", "task": task}
+    except Exception as e:
+        logger.error(f"Failed to delete item: {e}")
+        return {"error": str(e)}

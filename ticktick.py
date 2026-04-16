@@ -8,6 +8,7 @@ Use scripts/ticktick_auth.py to generate the token.
 
 import logging
 import os
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -236,8 +237,112 @@ class TickTickClient:
         return True
 
     # ========================================================================
+    # Item Operations (checklist items within a task)
+    # ========================================================================
+
+    def add_item(
+        self,
+        task_id: str,
+        project_id: str,
+        title: str,
+        time_zone: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Add a checklist item to a task."""
+        client = self._get_client()
+        raw_task = self._get_raw_task(project_id, task_id)
+        items = raw_task.get("items", [])
+
+        new_item: Dict[str, Any] = {
+            "id": uuid.uuid4().hex,
+            "title": title,
+            "status": 0,
+            "sortOrder": len(items) * 100
+        }
+        if time_zone:
+            new_item["timeZone"] = time_zone
+
+        items.append(new_item)
+
+        body = {"id": task_id, "projectId": project_id, "items": items}
+        response = client.post(f"/task/{task_id}", json=body)
+        response.raise_for_status()
+        logger.info(f"Added item to task: {task_id}")
+        return self._format_task(response.json())
+
+    def update_item(
+        self,
+        task_id: str,
+        project_id: str,
+        item_id: str,
+        title: Optional[str] = None,
+        status: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Update a checklist item in a task."""
+        client = self._get_client()
+        raw_task = self._get_raw_task(project_id, task_id)
+        items = raw_task.get("items", [])
+
+        item_found = False
+        for item in items:
+            if item.get("id") == item_id:
+                if title is not None:
+                    item["title"] = title
+                if status is not None:
+                    item["status"] = status
+                item_found = True
+                break
+
+        if not item_found:
+            raise ValueError(f"Item {item_id} not found in task {task_id}")
+
+        body = {"id": task_id, "projectId": project_id, "items": items}
+        response = client.post(f"/task/{task_id}", json=body)
+        response.raise_for_status()
+        logger.info(f"Updated item {item_id} in task: {task_id}")
+        return self._format_task(response.json())
+
+    def complete_item(
+        self,
+        task_id: str,
+        project_id: str,
+        item_id: str
+    ) -> Dict[str, Any]:
+        """Mark a checklist item as complete (status=2)."""
+        return self.update_item(task_id, project_id, item_id, status=2)
+
+    def delete_item(
+        self,
+        task_id: str,
+        project_id: str,
+        item_id: str
+    ) -> Dict[str, Any]:
+        """Delete a checklist item from a task."""
+        client = self._get_client()
+        raw_task = self._get_raw_task(project_id, task_id)
+        items = raw_task.get("items", [])
+
+        original_count = len(items)
+        items = [item for item in items if item.get("id") != item_id]
+
+        if len(items) == original_count:
+            raise ValueError(f"Item {item_id} not found in task {task_id}")
+
+        body = {"id": task_id, "projectId": project_id, "items": items}
+        response = client.post(f"/task/{task_id}", json=body)
+        response.raise_for_status()
+        logger.info(f"Deleted item {item_id} from task: {task_id}")
+        return self._format_task(response.json())
+
+    # ========================================================================
     # Helper Methods
     # ========================================================================
+
+    def _get_raw_task(self, project_id: str, task_id: str) -> Dict[str, Any]:
+        """Fetch raw (unformatted) task data from the API."""
+        client = self._get_client()
+        response = client.get(f"/project/{project_id}/task/{task_id}")
+        response.raise_for_status()
+        return response.json()
 
     def _build_optional_fields(self, **kwargs) -> Dict[str, Any]:
         """Build a dictionary with only non-None values."""
