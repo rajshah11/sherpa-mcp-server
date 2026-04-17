@@ -9,6 +9,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - ✅ **TickTick**: Task management (projects, tasks, completion tracking)
 - 🍽️ **Meal Logger**: Track meals and nutrition with persistent storage
 - 🏋️ **Workout Tracker**: Log and track a 50-day structured workout plan
+- 💧 **Water Tracker**: Log daily water intake with goal progress
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -51,6 +52,12 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Structured session logging: `session_type`, exercises with sets/reps/weight, free-form `tags`
 - Supports strength, cardio, HIIT, bodyweight, mobility, and rest sessions
 - Progress summary with days trained, rest days logged, and average feel score
+
+✅ **Phase 6 Complete**: Water Tracker
+- Log water intake entries with amount (ml), optional timestamp, and notes
+- Daily summary with total ml, entry count, goal progress percentage, and goal-met flag
+- Configurable daily goal via `WATER_DAILY_GOAL_ML` env var (default: 1920ml)
+- Persistent storage using Railway volumes
 
 🚧 **Planned Integrations**:
 - Obsidian notes (filesystem synced with SyncThing)
@@ -428,6 +435,71 @@ Get a summary of all logged sessions.
 - `rest_days_logged` — rest/recovery days logged
 - `avg_feel_score`, `first_session_date`, `last_session_date`
 
+### Water Tracker Tools
+
+> **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+
+#### `water_log`
+Log a water intake entry.
+
+**Parameters**:
+- `amount_ml` (float, required): Amount consumed in millilitres (e.g. 250 for a glass, 500 for a bottle)
+- `logged_at` (string, optional): ISO datetime when water was consumed (defaults to now)
+- `notes` (string, optional): Optional label, e.g. "morning", "post-run", "with supplements"
+
+**Returns**: Created entry with ID
+
+#### `water_get`
+Get a specific water intake entry by ID.
+
+**Parameters**:
+- `entry_id` (string, required): The entry ID
+
+**Returns**: Entry details
+
+#### `water_update`
+Update an existing water intake entry.
+
+**Parameters**:
+- `entry_id` (string, required): ID of the entry to update
+- `amount_ml` (float, optional): New amount in millilitres
+- `logged_at` (string, optional): Updated ISO datetime
+- `notes` (string, optional): Updated notes
+
+**Returns**: Updated entry details
+
+#### `water_delete`
+Delete a water intake entry.
+
+**Parameters**:
+- `entry_id` (string, required): Entry ID to delete
+
+**Returns**: Deletion confirmation
+
+#### `water_list`
+List water intake entries with optional date range filter.
+
+**Parameters**:
+- `start_date` (string, optional): Filter on or after this date (YYYY-MM-DD)
+- `end_date` (string, optional): Filter on or before this date (YYYY-MM-DD)
+- `limit` (int, optional): Maximum results to return (default: 50)
+
+**Returns**: List of entries sorted by time descending
+
+#### `water_daily_summary`
+Get water intake summary for a day.
+
+**Parameters**:
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+
+**Returns**: Daily summary including:
+- `total_ml` — total water consumed
+- `entry_count` — number of entries logged
+- `goal_ml` — daily goal (configurable via `WATER_DAILY_GOAL_ML`, default 1920ml)
+- `goal_pct` — percentage of goal reached
+- `goal_met` — boolean whether goal was reached
+- `entries` — all entries for that day sorted chronologically
+
 ### Meal Logger Tools
 
 > **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
@@ -551,7 +623,8 @@ Expected response:
   "auth_enabled": false,
   "google_calendar_enabled": true,
   "ticktick_enabled": true,
-  "meal_logger_enabled": true
+  "meal_logger_enabled": true,
+  "water_tracker_enabled": true
 }
 ```
 
@@ -580,11 +653,13 @@ sherpa-mcp-server/
 │   ├── calendar.py              # Google Calendar tools
 │   ├── ticktick.py              # TickTick tools
 │   ├── meal_logger.py           # Meal logging tools
-│   └── workout_tracker.py       # Workout tracking tools
+│   ├── workout_tracker.py       # Workout tracking tools
+│   └── water_tracker.py         # Water tracking tools
 ├── google_calendar.py           # Google Calendar API client
 ├── ticktick.py                  # TickTick API client
 ├── meal_logger.py               # Meal logger with persistent storage
 ├── workout_tracker.py           # Workout tracker with embedded 50-day plan
+├── water_tracker.py             # Water tracker with persistent storage
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -773,9 +848,10 @@ For issues and questions:
 - ✅ Phase 3: TickTick task management
 - ✅ Phase 4: Meal logger with persistent storage
 - ✅ Phase 5: Workout tracker with 50-day plan
-- 🚧 Phase 6: Obsidian notes integration
-- 🚧 Phase 7: Health data management
-- 🚧 Phase 8: Advanced AI-powered features
+- ✅ Phase 6: Water tracker with daily goal tracking
+- 🚧 Phase 7: Obsidian notes integration
+- 🚧 Phase 8: Health data management
+- 🚧 Phase 9: Advanced AI-powered features
 
 ---
 
