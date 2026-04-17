@@ -8,6 +8,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - 📅 **Google Calendar**: Full calendar management (list, create, update, delete events)
 - ✅ **TickTick**: Task management (projects, tasks, completion tracking)
 - 🍽️ **Meal Logger**: Track meals and nutrition with persistent storage
+- 🏋️ **Workout Tracker**: Log and track a 50-day structured workout plan
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -44,6 +45,12 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Daily nutrition summaries with macro totals
 - Persistent storage using Railway volumes
 - Configurable timezone support
+
+✅ **Phase 5 Complete**: Workout Tracker
+- Pure session log — no external plan dependency
+- Structured session logging: `session_type`, exercises with sets/reps/weight, free-form `tags`
+- Supports strength, cardio, HIIT, bodyweight, mobility, and rest sessions
+- Progress summary with days trained, rest days logged, and average feel score
 
 🚧 **Planned Integrations**:
 - Obsidian notes (filesystem synced with SyncThing)
@@ -337,6 +344,90 @@ Delete a task.
 
 **Returns**: Deletion confirmation
 
+### Workout Tracker Tools
+
+> **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+
+#### `workout_log`
+Log a workout session with structured exercises.
+
+**Parameters**:
+- `session_type` (string, required): One of `strength`, `cardio`, `hiit`, `bodyweight`, `mobility`, `rest`
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+- `exercises` (string, optional): JSON array of exercise objects (see examples below)
+- `tags` (string, optional): Comma-separated grouping tags, e.g. `"phase-1,lower,gym"`
+- `how_felt` (int, optional): Energy/effort rating 1-5 (1=exhausted, 5=great)
+- `notes` (string, optional): Free-text notes (e.g. modifications made, baby sleep quality)
+- `logged_at` (string, optional): ISO datetime when workout occurred (defaults to now)
+
+**Exercise examples**:
+```json
+// Strength
+[{"exercise_type":"strength","name":"Back Squat","equipment":"barbell",
+  "sets":[{"reps":8,"weight_lbs":125},{"reps":8,"weight_lbs":125}]}]
+
+// Bodyweight / timed sets
+[{"exercise_type":"bodyweight","name":"Plank",
+  "sets":[{"duration_seconds":60},{"duration_seconds":45}]}]
+
+// Cardio
+[{"exercise_type":"cardio","name":"HIIT Circuit","duration_seconds":1500}]
+
+// HIIT intervals
+[{"exercise_type":"hiit","name":"Tabata","rounds":4,"work_seconds":20,"rest_seconds":10}]
+```
+
+**Returns**: Created workout log entry with ID
+
+#### `workout_get_log`
+Get all logged workout entries for a date.
+
+**Parameters**:
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+
+**Returns**: All logged workout entries for that date
+
+#### `workout_list`
+List logged workout sessions with optional filters.
+
+**Parameters**:
+- `start_date` (string, optional): Filter on or after this date (YYYY-MM-DD)
+- `end_date` (string, optional): Filter on or before this date (YYYY-MM-DD)
+- `session_type` (string, optional): Filter by type — `strength`, `cardio`, `hiit`, `bodyweight`, `mobility`, `rest`
+- `tag` (string, optional): Filter by a single tag value (e.g. `"phase-1"`, `"gym"`)
+- `limit` (int, optional): Maximum results to return (default: 50)
+
+**Returns**: List of logged workout entries
+
+#### `workout_update`
+Update an existing workout log entry. Pass the full updated exercises array to replace exercises.
+
+**Parameters**:
+- `workout_id` (string, required): ID of the entry to update
+- `session_type` (string, optional): New session type
+- `exercises` (string, optional): Full replacement JSON exercise array
+- `tags` (string, optional): New comma-separated tags (replaces existing)
+- `how_felt` (int, optional): Updated feel rating 1-5
+- `notes` (string, optional): Updated notes
+
+**Returns**: Updated workout entry
+
+#### `workout_delete`
+Delete a workout log entry.
+
+**Parameters**:
+- `workout_id` (string, required): ID of the entry to delete
+
+**Returns**: Deletion confirmation
+
+#### `workout_progress`
+Get a summary of all logged sessions.
+
+**Returns**: Summary including:
+- `days_trained` — non-rest sessions logged
+- `rest_days_logged` — rest/recovery days logged
+- `avg_feel_score`, `first_session_date`, `last_session_date`
+
 ### Meal Logger Tools
 
 > **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
@@ -488,10 +579,12 @@ sherpa-mcp-server/
 │   ├── core.py                  # Core utility tools
 │   ├── calendar.py              # Google Calendar tools
 │   ├── ticktick.py              # TickTick tools
-│   └── meal_logger.py           # Meal logging tools
+│   ├── meal_logger.py           # Meal logging tools
+│   └── workout_tracker.py       # Workout tracking tools
 ├── google_calendar.py           # Google Calendar API client
 ├── ticktick.py                  # TickTick API client
 ├── meal_logger.py               # Meal logger with persistent storage
+├── workout_tracker.py           # Workout tracker with embedded 50-day plan
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -679,9 +772,10 @@ For issues and questions:
 - ✅ Phase 2: Google Calendar integration
 - ✅ Phase 3: TickTick task management
 - ✅ Phase 4: Meal logger with persistent storage
-- 🚧 Phase 5: Obsidian notes integration
-- 🚧 Phase 6: Health data management
-- 🚧 Phase 7: Advanced AI-powered features
+- ✅ Phase 5: Workout tracker with 50-day plan
+- 🚧 Phase 6: Obsidian notes integration
+- 🚧 Phase 7: Health data management
+- 🚧 Phase 8: Advanced AI-powered features
 
 ---
 
