@@ -8,6 +8,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - 📅 **Google Calendar**: Full calendar management (list, create, update, delete events)
 - ✅ **TickTick**: Task management (projects, tasks, completion tracking)
 - 🍽️ **Meal Logger**: Track meals and nutrition with persistent storage
+- 🏋️ **Workout Tracker**: Log and track a 50-day structured workout plan
 - 🛠️ **MCP Tools**: Test connection, echo messages, get server time, and more
 - 🏥 **Health Monitoring**: Built-in health check and info endpoints
 - 🌐 **Remote Access**: HTTP-based transport for remote connectivity
@@ -44,6 +45,12 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Daily nutrition summaries with macro totals
 - Persistent storage using Railway volumes
 - Configurable timezone support
+
+✅ **Phase 5 Complete**: Workout Tracker
+- 50-day structured plan embedded (Apr 17 – Jun 5, 2026)
+- Three progressive phases: Re-entry (3x8), Build (4x6), Push (5x5)
+- Log completions with feel score (1-5) and free-text notes
+- Progress summary with completion rate and average feel score
 
 🚧 **Planned Integrations**:
 - Obsidian notes (filesystem synced with SyncThing)
@@ -337,6 +344,92 @@ Delete a task.
 
 **Returns**: Deletion confirmation
 
+### Workout Tracker Tools
+
+> **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+> The 50-day plan runs Apr 17 – Jun 5, 2026 across three phases.
+
+#### `workout_log`
+Log a workout session — mark it completed or skipped, rate how you felt, and add notes.
+
+**Parameters**:
+- `completed` (boolean, required): Whether the workout was completed
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+- `day_number` (int, optional): Plan day number 1-50 (inferred from date if omitted)
+- `actual_workout` (string, optional): What you actually did (if different from plan)
+- `how_felt` (int, optional): Energy/effort rating 1-5 (1=exhausted, 5=great)
+- `notes` (string, optional): Free-text notes (e.g. baby sleep quality, modifications)
+- `logged_at` (string, optional): ISO datetime when workout occurred (defaults to now)
+
+**Returns**: Created workout log entry with ID
+
+#### `workout_get_plan`
+Get the planned workout for a specific day or date.
+
+**Parameters**:
+- `day_number` (int, optional): Plan day number 1-50
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+
+**Returns**: Plan entry with phase, type, focus, workout summary, duration, and notes
+
+#### `workout_get_log`
+Get the logged workout entry and the plan for a specific day or date.
+
+**Parameters**:
+- `day_number` (int, optional): Plan day number 1-50
+- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
+
+**Returns**: Plan details plus all logged workout entries for that day
+
+#### `workout_list`
+List logged workout sessions with optional filters.
+
+**Parameters**:
+- `start_date` (string, optional): Filter on or after this date (YYYY-MM-DD)
+- `end_date` (string, optional): Filter on or before this date (YYYY-MM-DD)
+- `completed_only` (boolean, optional): Return only completed sessions
+- `limit` (int, optional): Maximum results to return (default: 50)
+
+**Returns**: List of logged workout entries
+
+#### `workout_update`
+Update an existing workout log entry.
+
+**Parameters**:
+- `workout_id` (string, required): ID of the entry to update
+- `completed` (boolean, optional): New completion status
+- `actual_workout` (string, optional): Updated description
+- `how_felt` (int, optional): Updated feel rating 1-5
+- `notes` (string, optional): Updated notes
+
+**Returns**: Updated workout entry
+
+#### `workout_delete`
+Delete a workout log entry.
+
+**Parameters**:
+- `workout_id` (string, required): ID of the entry to delete
+
+**Returns**: Deletion confirmation
+
+#### `workout_progress`
+Get an overall progress summary across the 50-day plan.
+
+**Returns**: Summary including:
+- Total days elapsed vs. completed
+- Completion rate percentage
+- Average feel score
+- Current day number and days remaining
+
+#### `workout_list_plan`
+List all 50 days of the workout plan.
+
+**Parameters**:
+- `phase` (string, optional): Filter by phase — "Phase 1", "Phase 2", or "Phase 3"
+- `workout_type` (string, optional): Filter by type — "Gym", "Home", or "Rest"
+
+**Returns**: Full plan with day number, date, phase, type, focus, workout summary, and duration
+
 ### Meal Logger Tools
 
 > **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
@@ -488,10 +581,12 @@ sherpa-mcp-server/
 │   ├── core.py                  # Core utility tools
 │   ├── calendar.py              # Google Calendar tools
 │   ├── ticktick.py              # TickTick tools
-│   └── meal_logger.py           # Meal logging tools
+│   ├── meal_logger.py           # Meal logging tools
+│   └── workout_tracker.py       # Workout tracking tools
 ├── google_calendar.py           # Google Calendar API client
 ├── ticktick.py                  # TickTick API client
 ├── meal_logger.py               # Meal logger with persistent storage
+├── workout_tracker.py           # Workout tracker with embedded 50-day plan
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Docker container configuration
 ├── .dockerignore                # Docker build exclusions
@@ -679,9 +774,10 @@ For issues and questions:
 - ✅ Phase 2: Google Calendar integration
 - ✅ Phase 3: TickTick task management
 - ✅ Phase 4: Meal logger with persistent storage
-- 🚧 Phase 5: Obsidian notes integration
-- 🚧 Phase 6: Health data management
-- 🚧 Phase 7: Advanced AI-powered features
+- ✅ Phase 5: Workout tracker with 50-day plan
+- 🚧 Phase 6: Obsidian notes integration
+- 🚧 Phase 7: Health data management
+- 🚧 Phase 8: Advanced AI-powered features
 
 ---
 
