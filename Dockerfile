@@ -23,7 +23,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY server.py config.py google_calendar.py ticktick.py meal_logger.py workout_tracker.py ./
+COPY server.py config.py google_calendar.py ticktick.py meal_logger.py workout_tracker.py water_tracker.py ./
 COPY servers/ ./servers/
 
 # Create non-root user for security

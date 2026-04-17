@@ -24,8 +24,10 @@ from servers.calendar import calendar_server
 from servers.core import core_server
 from servers.meal_logger import meal_logger_server
 from servers.ticktick import ticktick_server
+from servers.water_tracker import water_tracker_server
 from servers.workout_tracker import workout_tracker_server
 from ticktick import is_ticktick_configured
+from water_tracker import is_water_tracker_configured as is_water_configured
 from workout_tracker import is_workout_tracker_configured as is_workout_configured
 
 load_dotenv()
@@ -97,6 +99,7 @@ async def compose_servers():
     await server.import_server(ticktick_server)
     await server.import_server(meal_logger_server)
     await server.import_server(workout_tracker_server)
+    await server.import_server(water_tracker_server)
     logger.info("Server composition complete")
 
 
@@ -111,6 +114,7 @@ def _get_integration_status() -> dict:
         "ticktick": is_ticktick_configured(),
         "meal_logger": is_meal_logger_configured(),
         "workout_tracker": is_workout_configured(),
+        "water_tracker": is_water_configured(),
     }
 
 
@@ -128,6 +132,7 @@ async def health_check(request: Request) -> JSONResponse:
         "ticktick_enabled": integrations["ticktick"],
         "meal_logger_enabled": integrations["meal_logger"],
         "workout_tracker_enabled": integrations["workout_tracker"],
+        "water_tracker_enabled": integrations["water_tracker"],
     })
 
 
@@ -186,6 +191,7 @@ def _log_startup_info():
     logger.info(f"TickTick: {'Enabled' if integrations['ticktick'] else 'Disabled'}")
     logger.info(f"Meal Logger: {'Enabled' if integrations['meal_logger'] else 'Disabled'}")
     logger.info(f"Workout Tracker: {'Enabled' if integrations['workout_tracker'] else 'Disabled'}")
+    logger.info(f"Water Tracker: {'Enabled' if integrations['water_tracker'] else 'Disabled'}")
     logger.info(f"Server URL: {os.getenv('SERVER_BASE_URL', 'http://localhost:8000')}")
     logger.info(separator)
 
