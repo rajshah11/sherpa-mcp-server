@@ -1,5 +1,5 @@
 """
-Workout Tracker MCP Server - Log and track the 50-day workout plan.
+Workout Tracker MCP Server - Log and query workout sessions.
 """
 
 import json
@@ -93,8 +93,6 @@ async def log_workout(
         if err:
             return {"error": err}
 
-        parsed_tags = _parse_tags(tags)
-
         if ctx:
             await ctx.info(f"Logging {session_type} session")
 
@@ -102,7 +100,7 @@ async def log_workout(
             session_type=session_type,
             date=date,
             exercises=parsed_exercises,
-            tags=parsed_tags,
+            tags=_parse_tags(tags),
             how_felt=how_felt,
             notes=notes,
             logged_at=logged_at,
@@ -113,44 +111,15 @@ async def log_workout(
 
 
 @workout_tracker_server.tool(
-    name="workout_get_plan",
-    description="Get the planned workout for a specific day number (1-50) or date"
-)
-async def get_plan(
-    day_number: Optional[int] = None,
-    date: Optional[str] = None,
-    ctx: Context = None
-) -> dict:
-    """
-    Get the planned workout.
-
-    Args:
-        day_number: Plan day number 1-50
-        date: Date in YYYY-MM-DD format (defaults to today if neither provided)
-    """
-    if not is_workout_tracker_configured():
-        return NOT_CONFIGURED_ERROR
-
-    try:
-        if ctx:
-            await ctx.info(f"Getting plan for day={day_number}, date={date}")
-
-        return get_workout_tracker_client().get_plan(day_number=day_number, date=date)
-    except Exception as e:
-        logger.error(f"Failed to get plan: {e}")
-        return {"error": str(e)}
-
-
-@workout_tracker_server.tool(
     name="workout_get_log",
-    description="Get all logged workout entries for a date, alongside the plan for that day"
+    description="Get all logged workout entries for a date"
 )
 async def get_workout_log(
     date: Optional[str] = None,
     ctx: Context = None
 ) -> dict:
     """
-    Get logged workouts for a day alongside the plan.
+    Get logged workouts for a day.
 
     Args:
         date: Date in YYYY-MM-DD format (defaults to today)
@@ -160,7 +129,7 @@ async def get_workout_log(
 
     try:
         if ctx:
-            await ctx.info(f"Getting workout log for date={date or 'today'}")
+            await ctx.info(f"Getting workout log for {date or 'today'}")
 
         return get_workout_tracker_client().get_workout_log(date=date)
     except Exception as e:
@@ -231,10 +200,8 @@ async def update_workout(
     Args:
         workout_id: ID of the workout log entry to update
         session_type: New session type
-        exercises: Full replacement JSON string array of exercise objects.
-                   Replaces all existing exercises. Fetch current entry with
-                   workout_get_log first, modify the array, then pass it here.
-        tags: New comma-separated tags (replaces existing tags)
+        exercises: Full replacement JSON string array of exercise objects
+        tags: New comma-separated tags (replaces existing)
         how_felt: Updated rating 1-5
         notes: Updated notes
     """
@@ -248,8 +215,6 @@ async def update_workout(
             if err:
                 return {"error": err}
 
-        parsed_tags = _parse_tags(tags)
-
         if ctx:
             await ctx.info(f"Updating workout: {workout_id}")
 
@@ -257,7 +222,7 @@ async def update_workout(
             workout_id=workout_id,
             session_type=session_type,
             exercises=parsed_exercises,
-            tags=parsed_tags,
+            tags=_parse_tags(tags),
             how_felt=how_felt,
             notes=notes,
         )
@@ -290,10 +255,10 @@ async def delete_workout(
 
 @workout_tracker_server.tool(
     name="workout_progress",
-    description="Get an overall progress summary — days trained, rest days logged, feel scores, days remaining"
+    description="Get a summary of all logged sessions — days trained, rest days, feel scores"
 )
 async def get_progress(ctx: Context = None) -> dict:
-    """Get overall 50-day plan progress summary."""
+    """Get workout session summary."""
     if not is_workout_tracker_configured():
         return NOT_CONFIGURED_ERROR
 
@@ -304,33 +269,4 @@ async def get_progress(ctx: Context = None) -> dict:
         return get_workout_tracker_client().get_progress()
     except Exception as e:
         logger.error(f"Failed to get progress: {e}")
-        return {"error": str(e)}
-
-
-@workout_tracker_server.tool(
-    name="workout_list_plan",
-    description="List all 50 days of the workout plan, optionally filtered by phase or type (Gym/Home/Rest)"
-)
-async def list_plan(
-    phase: Optional[str] = None,
-    workout_type: Optional[str] = None,
-    ctx: Context = None
-) -> dict:
-    """
-    List the full 50-day plan.
-
-    Args:
-        phase: Filter by phase — "Phase 1", "Phase 2", or "Phase 3"
-        workout_type: Filter by type — "Gym", "Home", or "Rest"
-    """
-    if not is_workout_tracker_configured():
-        return NOT_CONFIGURED_ERROR
-
-    try:
-        if ctx:
-            await ctx.info("Listing workout plan...")
-
-        return get_workout_tracker_client().list_plan(phase=phase, workout_type=workout_type)
-    except Exception as e:
-        logger.error(f"Failed to list plan: {e}")
         return {"error": str(e)}

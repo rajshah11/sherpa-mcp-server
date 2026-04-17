@@ -47,8 +47,7 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Configurable timezone support
 
 ✅ **Phase 5 Complete**: Workout Tracker
-- 50-day structured plan embedded for reference (Apr 17 – Jun 5, 2026)
-- Three progressive phases: Re-entry (3x8), Build (4x6), Push (5x5)
+- Pure session log — no external plan dependency
 - Structured session logging: `session_type`, exercises with sets/reps/weight, free-form `tags`
 - Supports strength, cardio, HIIT, bodyweight, mobility, and rest sessions
 - Progress summary with days trained, rest days logged, and average feel score
@@ -380,22 +379,13 @@ Log a workout session with structured exercises.
 
 **Returns**: Created workout log entry with ID
 
-#### `workout_get_plan`
-Get the planned workout for a specific day number or date.
-
-**Parameters**:
-- `day_number` (int, optional): Plan day number 1-50
-- `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
-
-**Returns**: Plan entry with phase, type, focus, workout summary, duration, and notes
-
 #### `workout_get_log`
-Get all logged workout entries for a date, alongside the plan for that day.
+Get all logged workout entries for a date.
 
 **Parameters**:
 - `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
 
-**Returns**: Plan details plus all logged workout entries for that date
+**Returns**: All logged workout entries for that date
 
 #### `workout_list`
 List logged workout sessions with optional filters.
@@ -431,21 +421,12 @@ Delete a workout log entry.
 **Returns**: Deletion confirmation
 
 #### `workout_progress`
-Get an overall progress summary across the 50-day plan.
+Get a summary of all logged sessions.
 
 **Returns**: Summary including:
-- `days_trained` — sessions logged with a non-rest session type
+- `days_trained` — non-rest sessions logged
 - `rest_days_logged` — rest/recovery days logged
-- Completion rate percentage, average feel score, days remaining
-
-#### `workout_list_plan`
-List all 50 days of the workout plan.
-
-**Parameters**:
-- `phase` (string, optional): Filter by phase — "Phase 1", "Phase 2", or "Phase 3"
-- `workout_type` (string, optional): Filter by type — "Gym", "Home", or "Rest"
-
-**Returns**: Full plan with day number, date, phase, type, focus, workout summary, and duration
+- `avg_feel_score`, `first_session_date`, `last_session_date`
 
 ### Meal Logger Tools
 
