@@ -47,10 +47,11 @@ A remote Model Context Protocol (MCP) server with Auth0 OAuth authentication, de
 - Configurable timezone support
 
 ✅ **Phase 5 Complete**: Workout Tracker
-- 50-day structured plan embedded (Apr 17 – Jun 5, 2026)
+- 50-day structured plan embedded for reference (Apr 17 – Jun 5, 2026)
 - Three progressive phases: Re-entry (3x8), Build (4x6), Push (5x5)
-- Log completions with feel score (1-5) and free-text notes
-- Progress summary with completion rate and average feel score
+- Structured session logging: `session_type`, exercises with sets/reps/weight, free-form `tags`
+- Supports strength, cardio, HIIT, bodyweight, mobility, and rest sessions
+- Progress summary with days trained, rest days logged, and average feel score
 
 🚧 **Planned Integrations**:
 - Obsidian notes (filesystem synced with SyncThing)
@@ -347,24 +348,40 @@ Delete a task.
 ### Workout Tracker Tools
 
 > **Note**: These tools require Railway volume setup. See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
-> The 50-day plan runs Apr 17 – Jun 5, 2026 across three phases.
 
 #### `workout_log`
-Log a workout session — mark it completed or skipped, rate how you felt, and add notes.
+Log a workout session with structured exercises.
 
 **Parameters**:
-- `completed` (boolean, required): Whether the workout was completed
+- `session_type` (string, required): One of `strength`, `cardio`, `hiit`, `bodyweight`, `mobility`, `rest`
 - `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
-- `day_number` (int, optional): Plan day number 1-50 (inferred from date if omitted)
-- `actual_workout` (string, optional): What you actually did (if different from plan)
+- `exercises` (string, optional): JSON array of exercise objects (see examples below)
+- `tags` (string, optional): Comma-separated grouping tags, e.g. `"phase-1,lower,gym"`
 - `how_felt` (int, optional): Energy/effort rating 1-5 (1=exhausted, 5=great)
-- `notes` (string, optional): Free-text notes (e.g. baby sleep quality, modifications)
+- `notes` (string, optional): Free-text notes (e.g. modifications made, baby sleep quality)
 - `logged_at` (string, optional): ISO datetime when workout occurred (defaults to now)
+
+**Exercise examples**:
+```json
+// Strength
+[{"exercise_type":"strength","name":"Back Squat","equipment":"barbell",
+  "sets":[{"reps":8,"weight_lbs":125},{"reps":8,"weight_lbs":125}]}]
+
+// Bodyweight / timed sets
+[{"exercise_type":"bodyweight","name":"Plank",
+  "sets":[{"duration_seconds":60},{"duration_seconds":45}]}]
+
+// Cardio
+[{"exercise_type":"cardio","name":"HIIT Circuit","duration_seconds":1500}]
+
+// HIIT intervals
+[{"exercise_type":"hiit","name":"Tabata","rounds":4,"work_seconds":20,"rest_seconds":10}]
+```
 
 **Returns**: Created workout log entry with ID
 
 #### `workout_get_plan`
-Get the planned workout for a specific day or date.
+Get the planned workout for a specific day number or date.
 
 **Parameters**:
 - `day_number` (int, optional): Plan day number 1-50
@@ -373,13 +390,12 @@ Get the planned workout for a specific day or date.
 **Returns**: Plan entry with phase, type, focus, workout summary, duration, and notes
 
 #### `workout_get_log`
-Get the logged workout entry and the plan for a specific day or date.
+Get all logged workout entries for a date, alongside the plan for that day.
 
 **Parameters**:
-- `day_number` (int, optional): Plan day number 1-50
 - `date` (string, optional): Date in YYYY-MM-DD format (defaults to today)
 
-**Returns**: Plan details plus all logged workout entries for that day
+**Returns**: Plan details plus all logged workout entries for that date
 
 #### `workout_list`
 List logged workout sessions with optional filters.
@@ -387,18 +403,20 @@ List logged workout sessions with optional filters.
 **Parameters**:
 - `start_date` (string, optional): Filter on or after this date (YYYY-MM-DD)
 - `end_date` (string, optional): Filter on or before this date (YYYY-MM-DD)
-- `completed_only` (boolean, optional): Return only completed sessions
+- `session_type` (string, optional): Filter by type — `strength`, `cardio`, `hiit`, `bodyweight`, `mobility`, `rest`
+- `tag` (string, optional): Filter by a single tag value (e.g. `"phase-1"`, `"gym"`)
 - `limit` (int, optional): Maximum results to return (default: 50)
 
 **Returns**: List of logged workout entries
 
 #### `workout_update`
-Update an existing workout log entry.
+Update an existing workout log entry. Pass the full updated exercises array to replace exercises.
 
 **Parameters**:
 - `workout_id` (string, required): ID of the entry to update
-- `completed` (boolean, optional): New completion status
-- `actual_workout` (string, optional): Updated description
+- `session_type` (string, optional): New session type
+- `exercises` (string, optional): Full replacement JSON exercise array
+- `tags` (string, optional): New comma-separated tags (replaces existing)
 - `how_felt` (int, optional): Updated feel rating 1-5
 - `notes` (string, optional): Updated notes
 
@@ -416,10 +434,9 @@ Delete a workout log entry.
 Get an overall progress summary across the 50-day plan.
 
 **Returns**: Summary including:
-- Total days elapsed vs. completed
-- Completion rate percentage
-- Average feel score
-- Current day number and days remaining
+- `days_trained` — sessions logged with a non-rest session type
+- `rest_days_logged` — rest/recovery days logged
+- Completion rate percentage, average feel score, days remaining
 
 #### `workout_list_plan`
 List all 50 days of the workout plan.
