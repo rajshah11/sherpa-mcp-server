@@ -244,6 +244,41 @@ async def update_task(
 
 
 @ticktick_server.tool(
+    name="ticktick_get_completed_tasks",
+    description="Retrieve completed TickTick tasks within a date range"
+)
+async def get_completed_tasks(
+    from_date: str,
+    to_date: Optional[str] = None,
+    limit: int = 100,
+    ctx: Context = None
+) -> dict:
+    """Get completed tasks between from_date and to_date (ISO datetime strings).
+
+    to_date defaults to now. limit caps the number of results (max 100).
+    """
+    if not is_ticktick_configured():
+        return NOT_CONFIGURED_ERROR
+
+    try:
+        if ctx:
+            await ctx.info(f"Fetching completed tasks from {from_date} to {to_date or 'now'}...")
+
+        from_dt = _parse_datetime(from_date)
+        to_dt = _parse_datetime(to_date) if to_date else None
+
+        tasks = get_ticktick_client().get_completed_tasks(
+            from_date=from_dt,
+            to_date=to_dt,
+            limit=limit
+        )
+        return {"tasks": tasks, "count": len(tasks)}
+    except Exception as e:
+        logger.error(f"Failed to get completed tasks: {e}")
+        return {"error": str(e)}
+
+
+@ticktick_server.tool(
     name="ticktick_complete_task",
     description="Mark a TickTick task as complete"
 )

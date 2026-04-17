@@ -231,6 +231,30 @@ class TickTickClient:
         logger.info(f"Completed task: {task_id}")
         return True
 
+    def get_completed_tasks(
+        self,
+        from_date: datetime,
+        to_date: Optional[datetime] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get completed tasks within a date range."""
+        client = self._get_client()
+
+        if to_date is None:
+            to_date = datetime.utcnow()
+
+        params = {
+            "from": self._format_datetime(from_date),
+            "to": self._format_datetime(to_date),
+            "limit": limit
+        }
+
+        response = client.get("/project/all/closed", params=params)
+        response.raise_for_status()
+        tasks = response.json()
+        logger.info(f"Fetched {len(tasks)} completed tasks")
+        return [self._format_task(task) for task in tasks]
+
     def delete_task(self, project_id: str, task_id: str) -> bool:
         """Delete a task."""
         client = self._get_client()
