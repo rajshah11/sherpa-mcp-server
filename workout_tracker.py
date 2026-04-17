@@ -1,7 +1,7 @@
 """
 Workout Tracker Module
 
-Provides persistent workout logging against a 50-day plan.
+Provides persistent workout logging with daily JSON files.
 Requires RAILWAY_VOLUME_MOUNT_PATH environment variable to be set.
 Files are stored as YYYY-MM-DD.json for fast daily lookups.
 """
@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Embedded 50-Day Workout Plan (Apr 17 – Jun 5, 2026)
+# Used only by workout_get_plan and workout_list_plan tools.
+# Log entries do NOT reference or embed this plan.
 # ============================================================================
 
 WORKOUT_PLAN: Dict[int, Dict[str, str]] = {
@@ -75,25 +77,77 @@ WORKOUT_PLAN: Dict[int, Dict[str, str]] = {
     50: {"date": "2026-06-05", "phase": "Phase 3", "type": "Gym",  "focus": "Lower (Squat)",        "workout_summary": "Back Squat 5x5 @ 185lb, KB goblet squats 3x12, DB RDL 3x8, DB rows 4x8",                                                             "duration": "35-45 min", "plan_notes": "Warm up 5 min. Rest 2-3 min between working sets."},
 }
 
-# Reverse lookup: date string -> day number
 _DATE_TO_DAY: Dict[str, int] = {v["date"]: k for k, v in WORKOUT_PLAN.items()}
 
 PLAN_START_DATE = "2026-04-17"
 PLAN_END_DATE = "2026-06-05"
-TOTAL_DAYS = 50
-
-
-def get_plan_day_for_date(date: str) -> Optional[int]:
-    """Return the plan day number for a date string (YYYY-MM-DD), or None."""
-    return _DATE_TO_DAY.get(date)
+TOTAL_PLAN_DAYS = 50
 
 
 def get_plan_for_day(day_number: int) -> Optional[Dict[str, Any]]:
-    """Return the plan entry for a given day number."""
     entry = WORKOUT_PLAN.get(day_number)
     if not entry:
         return None
     return {"day_number": day_number, **entry}
+
+
+def get_plan_for_date(date: str) -> Optional[Dict[str, Any]]:
+    day = _DATE_TO_DAY.get(date)
+    if day is None:
+        return None
+    return get_plan_for_day(day)
+
+
+# ============================================================================
+# Validation
+# ============================================================================
+
+VALID_SESSION_TYPES = {"strength", "cardio", "hiit", "bodyweight", "mobility", "rest"}
+VALID_EXERCISE_TYPES = {"strength", "cardio", "hiit", "bodyweight"}
+
+
+def _validate_exercises(parsed: List[Dict]) -> Optional[str]:
+    """Validate exercises list. Returns error string or None if valid."""
+    if not isinstance(parsed, list):
+        return "exercises must be a JSON array"
+
+    for i, ex in enumerate(parsed):
+        n = i + 1
+        if not isinstance(ex, dict):
+            return f"Exercise {n} must be an object"
+        if not ex.get("exercise_type"):
+            return f"Exercise {n} missing 'exercise_type'"
+        if ex["exercise_type"] not in VALID_EXERCISE_TYPES:
+            return f"Exercise {n}: invalid exercise_type '{ex['exercise_type']}'. Must be one of: {sorted(VALID_EXERCISE_TYPES)}"
+        if not ex.get("name"):
+            return f"Exercise {n} missing 'name'"
+
+        etype = ex["exercise_type"]
+
+        if etype in ("strength", "bodyweight"):
+            sets = ex.get("sets")
+            if not sets or not isinstance(sets, list):
+                return f"Exercise '{ex['name']}' must have at least one set"
+            for j, s in enumerate(sets):
+                if not isinstance(s, dict):
+                    return f"Set {j+1} of '{ex['name']}' must be an object"
+                if not s.get("reps") and not s.get("duration_seconds"):
+                    return f"Set {j+1} of '{ex['name']}' must have 'reps' or 'duration_seconds'"
+                # Assign set_number if absent
+                if "set_number" not in s:
+                    s["set_number"] = j + 1
+
+        elif etype == "cardio":
+            if not ex.get("duration_seconds") and not ex.get("distance_meters"):
+                return f"Exercise '{ex['name']}' (cardio) must have 'duration_seconds' or 'distance_meters'"
+
+        elif etype == "hiit":
+            if not ex.get("rounds"):
+                return f"Exercise '{ex['name']}' (hiit) must have 'rounds'"
+            if not ex.get("work_seconds"):
+                return f"Exercise '{ex['name']}' (hiit) must have 'work_seconds'"
+
+    return None
 
 
 # ============================================================================
@@ -159,11 +213,10 @@ class WorkoutTrackerClient:
     def _format(self, rec: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "id": rec.get("id"),
-            "day_number": rec.get("day_number"),
             "date": rec.get("date"),
-            "planned": rec.get("planned"),
-            "completed": rec.get("completed"),
-            "actual_workout": rec.get("actual_workout"),
+            "tags": rec.get("tags", []),
+            "session_type": rec.get("session_type"),
+            "exercises": rec.get("exercises", []),
             "how_felt": rec.get("how_felt"),
             "notes": rec.get("notes"),
             "logged_at": rec.get("logged_at"),
@@ -177,33 +230,37 @@ class WorkoutTrackerClient:
 
     def log_workout(
         self,
-        completed: bool,
+        session_type: str,
         date: Optional[str] = None,
-        day_number: Optional[int] = None,
-        actual_workout: Optional[str] = None,
+        exercises: Optional[List[Dict]] = None,
+        tags: Optional[List[str]] = None,
         how_felt: Optional[int] = None,
         notes: Optional[str] = None,
         logged_at: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Log a workout session."""
-        target_date = date or self._today()
-
-        # Resolve day number
-        resolved_day = day_number or get_plan_day_for_date(target_date)
+        """Log a new workout session."""
+        session_type_lower = session_type.lower()
+        if session_type_lower not in VALID_SESSION_TYPES:
+            return {"error": f"Invalid session_type. Must be one of: {sorted(VALID_SESSION_TYPES)}"}
 
         if how_felt is not None and not (1 <= how_felt <= 5):
             return {"error": "how_felt must be between 1 and 5"}
 
-        plan = get_plan_for_day(resolved_day) if resolved_day else None
+        exercises = exercises or []
+        if exercises:
+            err = _validate_exercises(exercises)
+            if err:
+                return {"error": f"exercises validation error: {err}"}
+
+        target_date = date or self._today()
         now = self._now()
 
         record = {
             "id": str(uuid.uuid4()),
-            "day_number": resolved_day,
             "date": target_date,
-            "planned": plan,
-            "completed": completed,
-            "actual_workout": actual_workout,
+            "tags": tags or [],
+            "session_type": session_type_lower,
+            "exercises": exercises,
             "how_felt": how_felt,
             "notes": notes,
             "logged_at": logged_at or now,
@@ -227,29 +284,20 @@ class WorkoutTrackerClient:
             return {"status": "success", "plan": plan}
 
         target_date = date or self._today()
-        resolved_day = get_plan_day_for_date(target_date)
-        if resolved_day is None:
+        plan = get_plan_for_date(target_date)
+        if not plan:
             return {"error": f"No plan found for date {target_date}"}
-        plan = get_plan_for_day(resolved_day)
         return {"status": "success", "plan": plan}
 
-    def get_workout_log(self, day_number: Optional[int] = None, date: Optional[str] = None) -> Dict[str, Any]:
-        """Get logged workout(s) for a specific day."""
-        target_date = date
-        if target_date is None and day_number is not None:
-            plan = WORKOUT_PLAN.get(day_number)
-            target_date = plan["date"] if plan else None
-        if target_date is None:
-            target_date = self._today()
-
+    def get_workout_log(self, date: Optional[str] = None) -> Dict[str, Any]:
+        """Get all logged workouts for a specific date."""
+        target_date = date or self._today()
         records = self._load(target_date)
-        resolved_day = day_number or get_plan_day_for_date(target_date)
-        plan = get_plan_for_day(resolved_day) if resolved_day else None
+        plan = get_plan_for_date(target_date)
 
         return {
             "status": "success",
             "date": target_date,
-            "day_number": resolved_day,
             "plan": plan,
             "logged_count": len(records),
             "workouts": [self._format(r) for r in records],
@@ -259,7 +307,8 @@ class WorkoutTrackerClient:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        completed_only: bool = False,
+        session_type: Optional[str] = None,
+        tag: Optional[str] = None,
         limit: int = 50,
     ) -> Dict[str, Any]:
         """List logged workouts with optional filters."""
@@ -271,8 +320,11 @@ class WorkoutTrackerClient:
                 continue
             all_records.extend(self._load(date))
 
-        if completed_only:
-            all_records = [r for r in all_records if r.get("completed")]
+        if session_type:
+            all_records = [r for r in all_records if r.get("session_type") == session_type.lower()]
+
+        if tag:
+            all_records = [r for r in all_records if tag in (r.get("tags") or [])]
 
         all_records = sorted(all_records, key=lambda r: r.get("logged_at", ""), reverse=True)
         all_records = all_records[:limit]
@@ -286,8 +338,9 @@ class WorkoutTrackerClient:
     def update_workout(
         self,
         workout_id: str,
-        completed: Optional[bool] = None,
-        actual_workout: Optional[str] = None,
+        session_type: Optional[str] = None,
+        exercises: Optional[List[Dict]] = None,
+        tags: Optional[List[str]] = None,
         how_felt: Optional[int] = None,
         notes: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -301,14 +354,27 @@ class WorkoutTrackerClient:
 
         date, record, index = result
 
-        if completed is not None:
-            record["completed"] = completed
-        if actual_workout is not None:
-            record["actual_workout"] = actual_workout
+        if session_type is not None:
+            st = session_type.lower()
+            if st not in VALID_SESSION_TYPES:
+                return {"error": f"Invalid session_type. Must be one of: {sorted(VALID_SESSION_TYPES)}"}
+            record["session_type"] = st
+
+        if exercises is not None:
+            err = _validate_exercises(exercises)
+            if err:
+                return {"error": f"exercises validation error: {err}"}
+            record["exercises"] = exercises
+
+        if tags is not None:
+            record["tags"] = tags
+
         if how_felt is not None:
             record["how_felt"] = how_felt
+
         if notes is not None:
             record["notes"] = notes
+
         record["updated_at"] = self._now()
 
         records = self._load(date)
@@ -333,40 +399,37 @@ class WorkoutTrackerClient:
         return {"status": "success", "message": f"Workout {workout_id} deleted"}
 
     def get_progress(self) -> Dict[str, Any]:
-        """Get overall progress across the 50-day plan."""
+        """Get overall progress summary across the 50-day plan."""
         logged_dates = set(self._all_dates())
-        completed_days: List[int] = []
-        skipped_days: List[int] = []
+        days_trained = 0
+        rest_days_logged = 0
         feel_scores: List[int] = []
 
-        for day_num, plan in WORKOUT_PLAN.items():
+        for plan in WORKOUT_PLAN.values():
             plan_date = plan["date"]
             if plan_date in logged_dates:
                 records = self._load(plan_date)
-                if records:
-                    completed = any(r.get("completed") for r in records)
-                    if completed:
-                        completed_days.append(day_num)
+                for r in records:
+                    st = r.get("session_type", "")
+                    if st == "rest":
+                        rest_days_logged += 1
                     else:
-                        skipped_days.append(day_num)
-                    for r in records:
-                        if r.get("how_felt"):
-                            feel_scores.append(r["how_felt"])
+                        days_trained += 1
+                    if r.get("how_felt"):
+                        feel_scores.append(r["how_felt"])
 
         today = self._today()
-        current_day = get_plan_day_for_date(today)
         days_elapsed = len([d for d in WORKOUT_PLAN.values() if d["date"] <= today])
 
         return {
             "status": "success",
-            "total_plan_days": TOTAL_DAYS,
+            "total_plan_days": TOTAL_PLAN_DAYS,
             "days_elapsed": days_elapsed,
-            "days_completed": len(completed_days),
-            "days_skipped": len(skipped_days),
-            "days_remaining": TOTAL_DAYS - days_elapsed,
-            "completion_rate_pct": round(len(completed_days) / max(days_elapsed, 1) * 100, 1),
+            "days_trained": days_trained,
+            "rest_days_logged": rest_days_logged,
+            "days_remaining": TOTAL_PLAN_DAYS - days_elapsed,
+            "completion_rate_pct": round((days_trained + rest_days_logged) / max(days_elapsed, 1) * 100, 1),
             "avg_feel_score": round(sum(feel_scores) / len(feel_scores), 1) if feel_scores else None,
-            "current_day_number": current_day,
             "plan_start": PLAN_START_DATE,
             "plan_end": PLAN_END_DATE,
         }
