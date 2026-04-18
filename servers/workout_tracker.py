@@ -54,6 +54,7 @@ async def log_workout(
     tags: Optional[str] = None,
     how_felt: Optional[int] = None,
     notes: Optional[str] = None,
+    calories_burned: Optional[int] = None,
     logged_at: Optional[str] = None,
     ctx: Context = None
 ) -> dict:
@@ -83,6 +84,7 @@ async def log_workout(
         tags: Comma-separated grouping tags, e.g. "phase-1,lower,gym"
         how_felt: Energy/effort rating 1-5 (1=exhausted, 5=great)
         notes: Free-text notes (e.g. modifications made, baby sleep quality)
+        calories_burned: Total calories burned during the session (positive integer, optional)
         logged_at: ISO datetime when the workout occurred (defaults to now)
     """
     if not is_workout_tracker_configured():
@@ -103,6 +105,7 @@ async def log_workout(
             tags=_parse_tags(tags),
             how_felt=how_felt,
             notes=notes,
+            calories_burned=calories_burned,
             logged_at=logged_at,
         )
     except Exception as e:
@@ -192,6 +195,7 @@ async def update_workout(
     tags: Optional[str] = None,
     how_felt: Optional[int] = None,
     notes: Optional[str] = None,
+    calories_burned: Optional[int] = None,
     ctx: Context = None
 ) -> dict:
     """
@@ -204,6 +208,7 @@ async def update_workout(
         tags: New comma-separated tags (replaces existing)
         how_felt: Updated rating 1-5
         notes: Updated notes
+        calories_burned: Updated calories burned (positive integer)
     """
     if not is_workout_tracker_configured():
         return NOT_CONFIGURED_ERROR
@@ -225,6 +230,7 @@ async def update_workout(
             tags=_parse_tags(tags),
             how_felt=how_felt,
             notes=notes,
+            calories_burned=calories_burned,
         )
     except Exception as e:
         logger.error(f"Failed to update workout: {e}")
