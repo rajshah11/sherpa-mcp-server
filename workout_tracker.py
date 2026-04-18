@@ -138,6 +138,7 @@ class WorkoutTrackerClient:
             "exercises": rec.get("exercises", []),
             "how_felt": rec.get("how_felt"),
             "notes": rec.get("notes"),
+            "calories_burned": rec.get("calories_burned"),
             "logged_at": rec.get("logged_at"),
             "created_at": rec.get("created_at"),
             "updated_at": rec.get("updated_at"),
@@ -155,6 +156,7 @@ class WorkoutTrackerClient:
         tags: Optional[List[str]] = None,
         how_felt: Optional[int] = None,
         notes: Optional[str] = None,
+        calories_burned: Optional[int] = None,
         logged_at: Optional[str] = None,
     ) -> Dict[str, Any]:
         session_type_lower = session_type.lower()
@@ -163,6 +165,9 @@ class WorkoutTrackerClient:
 
         if how_felt is not None and not (1 <= how_felt <= 5):
             return {"error": "how_felt must be between 1 and 5"}
+
+        if calories_burned is not None and (isinstance(calories_burned, bool) or not isinstance(calories_burned, int) or calories_burned <= 0):
+            return {"error": "calories_burned must be a positive integer"}
 
         exercises = exercises or []
         if exercises:
@@ -181,6 +186,7 @@ class WorkoutTrackerClient:
             "exercises": exercises,
             "how_felt": how_felt,
             "notes": notes,
+            "calories_burned": calories_burned,
             "logged_at": logged_at or now,
             "created_at": now,
             "updated_at": now,
@@ -239,6 +245,7 @@ class WorkoutTrackerClient:
         tags: Optional[List[str]] = None,
         how_felt: Optional[int] = None,
         notes: Optional[str] = None,
+        calories_burned: Optional[int] = None,
     ) -> Dict[str, Any]:
         result = self._find(workout_id)
         if not result:
@@ -246,6 +253,9 @@ class WorkoutTrackerClient:
 
         if how_felt is not None and not (1 <= how_felt <= 5):
             return {"error": "how_felt must be between 1 and 5"}
+
+        if calories_burned is not None and (isinstance(calories_burned, bool) or not isinstance(calories_burned, int) or calories_burned <= 0):
+            return {"error": "calories_burned must be a positive integer"}
 
         date, record, index = result
 
@@ -265,6 +275,8 @@ class WorkoutTrackerClient:
             record["how_felt"] = how_felt
         if notes is not None:
             record["notes"] = notes
+        if calories_burned is not None:
+            record["calories_burned"] = calories_burned
 
         record["updated_at"] = self._now()
         records = self._load(date)
@@ -292,6 +304,7 @@ class WorkoutTrackerClient:
         days_trained = 0
         rest_days_logged = 0
         feel_scores: List[int] = []
+        calories_list: List[int] = []
 
         for date in all_dates:
             for r in self._load(date):
@@ -301,6 +314,8 @@ class WorkoutTrackerClient:
                     days_trained += 1
                 if r.get("how_felt"):
                     feel_scores.append(r["how_felt"])
+                if r.get("calories_burned") is not None:
+                    calories_list.append(r["calories_burned"])
 
         return {
             "status": "success",
@@ -310,6 +325,8 @@ class WorkoutTrackerClient:
             "avg_feel_score": round(sum(feel_scores) / len(feel_scores), 1) if feel_scores else None,
             "first_session_date": all_dates[-1] if all_dates else None,
             "last_session_date": all_dates[0] if all_dates else None,
+            "total_calories_burned": sum(calories_list) if calories_list else None,
+            "avg_calories_per_session": round(sum(calories_list) / len(calories_list), 1) if calories_list else None,
         }
 
 
