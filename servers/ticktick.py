@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from fastmcp import Context, FastMCP
 
+from config import parse_datetime_input
 from ticktick import get_ticktick_client, is_ticktick_configured
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,8 @@ NOT_CONFIGURED_ERROR = {
 
 
 def _parse_datetime(dt_string: str) -> datetime:
-    """Parse ISO datetime string, handling Z suffix."""
-    return datetime.fromisoformat(dt_string.replace("Z", ""))
+    """Parse ISO datetime string; treat naive datetimes as local timezone."""
+    return parse_datetime_input(dt_string)
 
 
 # ============================================================================

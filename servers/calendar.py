@@ -3,11 +3,12 @@ Google Calendar MCP Server - Calendar management tools.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastmcp import Context, FastMCP
 
+from config import get_timezone, parse_datetime_input
 from google_calendar import get_calendar_client, is_calendar_configured
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,8 @@ NOT_CONFIGURED_ERROR = {
 
 
 def _parse_datetime(dt_string: str) -> datetime:
-    """Parse ISO datetime string, handling Z suffix."""
-    return datetime.fromisoformat(dt_string.replace("Z", ""))
+    """Parse ISO datetime string; treat naive datetimes as local timezone."""
+    return parse_datetime_input(dt_string)
 
 
 def _parse_date(date_string: str) -> datetime:
@@ -67,7 +68,7 @@ async def list_events(
         if ctx:
             await ctx.info(f"Fetching events from calendar: {calendar_id}")
 
-        time_min = datetime.utcnow()
+        time_min = datetime.now(timezone.utc)
         time_max = time_min + timedelta(days=days_ahead)
 
         events = get_calendar_client().list_events(
@@ -125,7 +126,7 @@ async def create_event(
     description: Optional[str] = None,
     location: Optional[str] = None,
     attendees: Optional[str] = None,
-    time_zone: str = "UTC",
+    time_zone: Optional[str] = None,
     all_day: bool = False,
     ctx: Context = None
 ) -> dict:
@@ -137,6 +138,7 @@ async def create_event(
         if ctx:
             await ctx.info(f"Creating event: {summary}")
 
+        time_zone = time_zone or get_timezone().key
         parse_fn = _parse_date if all_day else _parse_datetime
         start_dt = parse_fn(start_time)
         end_dt = parse_fn(end_time)
@@ -197,7 +199,7 @@ async def update_event(
     end_time: Optional[str] = None,
     description: Optional[str] = None,
     location: Optional[str] = None,
-    time_zone: str = "UTC",
+    time_zone: Optional[str] = None,
     ctx: Context = None
 ) -> dict:
     """Update an existing calendar event."""
@@ -207,6 +209,8 @@ async def update_event(
     try:
         if ctx:
             await ctx.info(f"Updating event: {event_id}")
+
+        time_zone = time_zone or get_timezone().key
 
         start_dt = _parse_datetime(start_time) if start_time else None
         end_dt = _parse_datetime(end_time) if end_time else None

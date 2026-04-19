@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import get_timezone
+from config import format_datetime_local, get_timezone, parse_datetime_input
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +82,16 @@ class WaterTrackerClient:
         return datetime.now(get_timezone()).strftime("%Y-%m-%d")
 
     def _get_local_date(self, iso_timestamp: str) -> str:
-        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
-        return dt.astimezone(get_timezone()).strftime("%Y-%m-%d")
+        return parse_datetime_input(iso_timestamp).astimezone(get_timezone()).strftime("%Y-%m-%d")
 
     def _format(self, rec: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "id": rec.get("id"),
             "amount_ml": rec.get("amount_ml"),
-            "logged_at": rec.get("logged_at"),
+            "logged_at": format_datetime_local(rec["logged_at"]) if rec.get("logged_at") else None,
             "notes": rec.get("notes"),
-            "created_at": rec.get("created_at"),
-            "updated_at": rec.get("updated_at"),
+            "created_at": format_datetime_local(rec["created_at"]) if rec.get("created_at") else None,
+            "updated_at": format_datetime_local(rec["updated_at"]) if rec.get("updated_at") else None,
         }
 
     def _get_daily_goal_ml(self) -> float:
@@ -120,6 +119,8 @@ class WaterTrackerClient:
             return {"error": "amount_ml must be a positive number"}
 
         now = self._now()
+        if logged_at:
+            logged_at = parse_datetime_input(logged_at).isoformat().replace("+00:00", "Z")
         entry_logged_at = logged_at or now
         target_date = self._get_local_date(entry_logged_at)
 
@@ -164,7 +165,7 @@ class WaterTrackerClient:
         if amount_ml is not None:
             record["amount_ml"] = float(amount_ml)
         if logged_at is not None:
-            record["logged_at"] = logged_at
+            record["logged_at"] = parse_datetime_input(logged_at).isoformat().replace("+00:00", "Z")
         if notes is not None:
             record["notes"] = notes
 

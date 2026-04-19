@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import get_timezone
+from config import format_datetime_local, get_timezone, parse_datetime_input
 
 logger = logging.getLogger(__name__)
 
@@ -139,9 +139,9 @@ class WorkoutTrackerClient:
             "how_felt": rec.get("how_felt"),
             "notes": rec.get("notes"),
             "calories_burned": rec.get("calories_burned"),
-            "logged_at": rec.get("logged_at"),
-            "created_at": rec.get("created_at"),
-            "updated_at": rec.get("updated_at"),
+            "logged_at": format_datetime_local(rec["logged_at"]) if rec.get("logged_at") else None,
+            "created_at": format_datetime_local(rec["created_at"]) if rec.get("created_at") else None,
+            "updated_at": format_datetime_local(rec["updated_at"]) if rec.get("updated_at") else None,
         }
 
     # ------------------------------------------------------------------
@@ -177,6 +177,8 @@ class WorkoutTrackerClient:
 
         target_date = date or self._today()
         now = self._now()
+        if logged_at:
+            logged_at = parse_datetime_input(logged_at).isoformat().replace("+00:00", "Z")
 
         record = {
             "id": str(uuid.uuid4()),

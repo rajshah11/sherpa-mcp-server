@@ -15,7 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import get_timezone
+from config import format_datetime_local, get_timezone, parse_datetime_input
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +96,10 @@ class MealLoggerClient:
             "id": meal.get("id"),
             "description": meal.get("description"),
             "meal_type": meal.get("meal_type"),
-            "logged_at": meal.get("logged_at"),
+            "logged_at": format_datetime_local(meal["logged_at"]) if meal.get("logged_at") else None,
             "macros": meal.get("macros", {}),
-            "created_at": meal.get("created_at"),
-            "updated_at": meal.get("updated_at"),
+            "created_at": format_datetime_local(meal["created_at"]) if meal.get("created_at") else None,
+            "updated_at": format_datetime_local(meal["updated_at"]) if meal.get("updated_at") else None,
         }
 
     def _now_iso(self) -> str:
@@ -112,8 +112,7 @@ class MealLoggerClient:
 
     def _get_local_date(self, iso_timestamp: str) -> str:
         """Convert ISO timestamp to local date in configured timezone."""
-        dt = datetime.fromisoformat(iso_timestamp.replace("Z", "+00:00"))
-        return dt.astimezone(get_timezone()).strftime("%Y-%m-%d")
+        return parse_datetime_input(iso_timestamp).astimezone(get_timezone()).strftime("%Y-%m-%d")
 
     def log_meal(
         self,
@@ -133,6 +132,8 @@ class MealLoggerClient:
             return {"error": f"Invalid meal type. Must be one of: {valid_types}"}
 
         now = self._now_iso()
+        if logged_at:
+            logged_at = parse_datetime_input(logged_at).isoformat().replace("+00:00", "Z")
         logged_at = logged_at or now
         date = self._get_local_date(logged_at)
 
@@ -220,6 +221,7 @@ class MealLoggerClient:
 
         new_date = old_date
         if logged_at is not None:
+            logged_at = parse_datetime_input(logged_at).isoformat().replace("+00:00", "Z")
             meal["logged_at"] = logged_at
             new_date = self._get_local_date(logged_at)
 
