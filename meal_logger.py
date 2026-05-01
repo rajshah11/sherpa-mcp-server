@@ -290,6 +290,22 @@ class MealLoggerClient:
             "meals_by_type": by_type,
         }
 
+    def get_range_summary(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Get nutrition summaries for each day in a date range."""
+        summaries = []
+        for date in sorted(self._list_date_files()):
+            if date < start_date or date > end_date:
+                continue
+            summaries.append(self.get_daily_summary(date))
+
+        return {
+            "status": "success",
+            "start_date": start_date,
+            "end_date": end_date,
+            "day_count": len(summaries),
+            "summaries": summaries,
+        }
+
 
 def _build_macros(
     calories: Optional[float] = None,

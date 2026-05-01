@@ -229,3 +229,32 @@ async def get_daily_summary(
     except Exception as e:
         logger.error(f"Failed to get daily summary: {e}")
         return {"error": str(e)}
+
+
+@meal_logger_server.tool(
+    name="meal_range_summary",
+    description="Get nutrition summaries for each day in a date range"
+)
+async def get_range_summary(
+    start_date: str,
+    end_date: str,
+    ctx: Context = None
+) -> dict:
+    """
+    Get an array of daily nutrition summaries for a date range.
+
+    Args:
+        start_date: Start of range, ISO date (YYYY-MM-DD), inclusive.
+        end_date:   End of range, ISO date (YYYY-MM-DD), inclusive.
+    """
+    if not is_meal_logger_configured():
+        return NOT_CONFIGURED_ERROR
+
+    try:
+        if ctx:
+            await ctx.info(f"Getting range summary: {start_date} to {end_date}")
+
+        return get_meal_logger_client().get_range_summary(start_date, end_date)
+    except Exception as e:
+        logger.error(f"Failed to get range summary: {e}")
+        return {"error": str(e)}
